@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Compile Update="Controls\CardPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\EmptyState.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\IconBadge.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\IconFieldPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\KpiCard.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\NumericStepperField.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\SearchBox.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\SideNav.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\ThemedButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\ThemedGrid.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\Toast.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\LoginForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Screens\Admin\SettingsControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Admin\UsersControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\ComingSoonControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\DashboardControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Expenses\ExpenseEntryControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Expenses\ExpenseReportControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Masters\CategoriesControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Masters\CompaniesControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Masters\CustomersControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Masters\ProductsControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Masters\SuppliersControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Reports\DailyClosingStockControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Reports\DailySaleReportControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Reports\DamageReportControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Reports\ProfitLossControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Sales\MarketCreditControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Sales\PartyBillingControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Sales\PartyLedgerControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Stock\DamageEntryControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Stock\OpeningStockControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Screens\Stock\StockReceivedControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+  </ItemGroup>
+</Project>
