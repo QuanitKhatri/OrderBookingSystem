@@ -17,6 +17,7 @@ public class PublisherForm : Form
 
     private PublisherSettings _settings = PublisherSettings.Load();
     private BroadcastPublisher _publisher;
+    private LicensePublisher _licenses;
 
     // Compose tab
     private readonly TextBox _titleBox = new();
@@ -36,6 +37,13 @@ public class PublisherForm : Form
     private readonly Button _refreshButton = new();
     private readonly Button _deleteButton = new();
 
+    // Customer locks tab
+    private readonly ListView _lockList = new();
+    private readonly TextBox _siteIdBox = new();
+    private readonly TextBox _siteLabelBox = new();
+    private readonly TextBox _lockMessageBox = new();
+    private readonly Label _lockStatus = new();
+
     // Settings tab
     private readonly TextBox _ownerBox = new();
     private readonly TextBox _repoBox = new();
@@ -45,6 +53,7 @@ public class PublisherForm : Form
     public PublisherForm()
     {
         _publisher = new BroadcastPublisher(_settings);
+        _licenses = new LicensePublisher(_settings);
 
         Text = "Distribution Publisher — send notifications to customers";
         StartPosition = FormStartPosition.CenterScreen;
@@ -56,12 +65,14 @@ public class PublisherForm : Form
         var tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(14, 6) };
         tabs.TabPages.Add(BuildComposeTab());
         tabs.TabPages.Add(BuildSentTab());
+        tabs.TabPages.Add(BuildLocksTab());
         tabs.TabPages.Add(BuildSettingsTab());
         Controls.Add(tabs);
 
         tabs.SelectedIndexChanged += async (_, _) =>
         {
             if (tabs.SelectedIndex == 1 && _settings.IsConfigured) await LoadSentAsync();
+            if (tabs.SelectedIndex == 2 && _settings.IsConfigured) await LoadLocksAsync();
         };
 
         Load += (_, _) =>
@@ -69,7 +80,7 @@ public class PublisherForm : Form
             LoadSettingsIntoForm();
             if (!_settings.IsConfigured)
             {
-                tabs.SelectedIndex = 2;
+                tabs.SelectedIndex = 3;
                 _settingsStatus.ForeColor = Danger;
                 _settingsStatus.Text = "Fill these in once before you can send anything.";
             }
@@ -444,6 +455,172 @@ public class PublisherForm : Form
         }
     }
 
+    // ---------------- Customer locks ----------------
+
+    private TabPage BuildLocksTab()
+    {
+        var page = new TabPage("Customer Locks") { BackColor = Background, Padding = new Padding(16) };
+
+        var warning = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 54,
+            ForeColor = Danger,
+            Padding = new Padding(2, 0, 2, 8),
+            Text =
+                "Locking stops that shop using the software completely until you unlock it.\n" +
+                "A shop that is offline keeps working until it next reaches the internet."
+        };
+
+        var form = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, AutoSize = true, Padding = new Padding(2) };
+        form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
+        form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        void AddRow(string label, Control control, int r)
+        {
+            form.Controls.Add(new Label { Text = label, ForeColor = Heading, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 8, 0) }, 0, r);
+            control.Dock = DockStyle.Fill;
+            control.Margin = new Padding(0, 4, 0, 4);
+            form.Controls.Add(control, 1, r);
+            form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        }
+
+        _siteIdBox.PlaceholderText = "Site Id exactly as in that shop's settings file, e.g. AL-MADINA-01";
+        _siteLabelBox.PlaceholderText = "Your own note, e.g. Al-Madina General Store, Korangi";
+        _lockMessageBox.PlaceholderText = "Shown on their screen, e.g. Payment pending. Call 0300-0000000.";
+        AddRow("Site Id", _siteIdBox, 0);
+        AddRow("Shop name", _siteLabelBox, 1);
+        AddRow("Lock message", _lockMessageBox, 2);
+
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, Padding = new Padding(0, 8, 0, 0) };
+        var lockButton = new Button();
+        StyleButton(lockButton, "Lock this shop", 160, primary: false);
+        lockButton.ForeColor = Danger;
+        lockButton.Click += async (_, _) => await SetLockAsync(true);
+        var unlockButton = new Button();
+        StyleButton(unlockButton, "Unlock this shop", 170, primary: true);
+        unlockButton.Margin = new Padding(8, 0, 0, 0);
+        unlockButton.Click += async (_, _) => await SetLockAsync(false);
+        var refreshButton = new Button();
+        StyleButton(refreshButton, "Refresh", 110, primary: false);
+        refreshButton.Margin = new Padding(8, 0, 0, 0);
+        refreshButton.Click += async (_, _) => await LoadLocksAsync();
+        buttons.Controls.Add(lockButton);
+        buttons.Controls.Add(unlockButton);
+        buttons.Controls.Add(refreshButton);
+
+        _lockStatus.Dock = DockStyle.Top;
+        _lockStatus.Height = 36;
+        _lockStatus.ForeColor = Muted;
+        _lockStatus.Padding = new Padding(2, 8, 2, 0);
+
+        _lockList.Dock = DockStyle.Fill;
+        _lockList.View = View.Details;
+        _lockList.FullRowSelect = true;
+        _lockList.MultiSelect = false;
+        _lockList.Columns.Add("Site Id", 180);
+        _lockList.Columns.Add("Shop", 230);
+        _lockList.Columns.Add("State", 90);
+        _lockList.Columns.Add("Changed", 140);
+        _lockList.SelectedIndexChanged += (_, _) =>
+        {
+            if (_lockList.SelectedItems.Count == 0) return;
+            var item = _lockList.SelectedItems[0];
+            if (item.Tag is not SiteLicense site) return;
+            _siteIdBox.Text = item.SubItems[0].Text;
+            _siteLabelBox.Text = site.Label ?? string.Empty;
+            _lockMessageBox.Text = site.Message ?? string.Empty;
+        };
+
+        page.Controls.Add(_lockList);
+        page.Controls.Add(_lockStatus);
+        page.Controls.Add(buttons);
+        page.Controls.Add(form);
+        page.Controls.Add(warning);
+        return page;
+    }
+
+    private async Task LoadLocksAsync()
+    {
+        _lockList.Items.Clear();
+        if (!_settings.IsConfigured) return;
+
+        UseWaitCursor = true;
+        try
+        {
+            var feed = await _licenses.GetFeedAsync();
+            foreach (var (siteId, site) in feed.Sites.OrderBy(kv => kv.Key))
+            {
+                var item = new ListViewItem(siteId) { Tag = site };
+                item.SubItems.Add(site.Label ?? string.Empty);
+                item.SubItems.Add(site.Locked ? "LOCKED" : "Allowed");
+                item.SubItems.Add(site.UpdatedAt == default ? string.Empty : site.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm"));
+                if (site.Locked) item.ForeColor = Danger;
+                _lockList.Items.Add(item);
+            }
+
+            _lockStatus.Text = feed.LockAll
+                ? "EVERY shop is locked at the moment."
+                : $"{feed.Sites.Count(s => s.Value.Locked)} locked, {feed.Sites.Count} shops listed. Shops not listed here can use the software.";
+            _lockStatus.ForeColor = feed.LockAll ? Danger : Muted;
+        }
+        catch (Exception ex)
+        {
+            _lockStatus.ForeColor = Danger;
+            _lockStatus.Text = $"Could not read the list: {ex.Message}";
+        }
+        finally
+        {
+            UseWaitCursor = false;
+        }
+    }
+
+    private async Task SetLockAsync(bool locked)
+    {
+        if (!_settings.IsConfigured)
+        {
+            _lockStatus.ForeColor = Danger;
+            _lockStatus.Text = "Fill in the Settings tab first.";
+            return;
+        }
+
+        var siteId = _siteIdBox.Text.Trim();
+        if (siteId.Length == 0)
+        {
+            _lockStatus.ForeColor = Danger;
+            _lockStatus.Text = "Enter the Site Id of the shop.";
+            return;
+        }
+
+        if (locked)
+        {
+            var confirm = MessageBox.Show(this,
+                $"Lock '{siteId}'?\n\nThat shop will not be able to use the software at all until you unlock it.",
+                "Lock shop", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (confirm != DialogResult.Yes) return;
+        }
+
+        UseWaitCursor = true;
+        try
+        {
+            await _licenses.SetSiteAsync(siteId, locked, _lockMessageBox.Text, _siteLabelBox.Text);
+            _lockStatus.ForeColor = Muted;
+            _lockStatus.Text = locked
+                ? $"'{siteId}' is locked. It takes effect at their next check."
+                : $"'{siteId}' can use the software again.";
+            await LoadLocksAsync();
+        }
+        catch (Exception ex)
+        {
+            _lockStatus.ForeColor = Danger;
+            _lockStatus.Text = $"Could not change it: {ex.Message}";
+        }
+        finally
+        {
+            UseWaitCursor = false;
+        }
+    }
+
     // ---------------- Settings ----------------
 
     private TabPage BuildSettingsTab()
@@ -528,6 +705,7 @@ public class PublisherForm : Form
         {
             _settings.Save();
             _publisher = new BroadcastPublisher(_settings);
+            _licenses = new LicensePublisher(_settings);
             _settingsStatus.ForeColor = Muted;
             _settingsStatus.Text = "Saved.";
         }

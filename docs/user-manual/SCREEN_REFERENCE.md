@@ -43,6 +43,7 @@ For step-by-step business procedures (for example "receive a delivery and sell i
 22. [Settings](#22-settings)
 22a. [Notifications Window](#22a-notifications-window)
 22b. [Software Update Window](#22b-software-update-window)
+22c. [Locked Screen](#22c-locked-screen)
 23. [Common Controls Used on Many Screens](#23-common-controls-used-on-many-screens)
 
 ---
@@ -1514,6 +1515,23 @@ Click **Settings** under **SYSTEM**.
 Click the **bell** at the top-right of the main window, to the left of the date. The bell only
 appears once at least one message has arrived.
 
+You can also click the **pop-up card** that appears under the bell when a message arrives, or the
+Windows notification near the clock.
+
+![New message pop-up](assets/screenshots/122-notification-popup.png)
+
+**Figure 122: The card shown when a message arrives**
+
+| Part of the card | Meaning |
+|---|---|
+| Coloured word (INFO / OFFER / ALERT) | The kind of message. |
+| Title and first line | What the message says. |
+| **Click to read** | Opens the Notifications window at that message. |
+| **✕** | Dismisses the card. The message stays unread in the list. |
+
+The card disappears by itself after a few seconds, and never takes the keyboard away from what you
+are typing. Messages already waiting the first time you open the application do not pop up.
+
 ![The bell in the top bar](assets/screenshots/117-notification-bell.png)
 
 **Figure 117: The bell showing four unread messages**
@@ -1628,6 +1646,43 @@ as they were. Only the program files change.
 | "Updates are switched off for this computer." | Your supplier fixed this PC to one version on purpose. |
 | "No update source is set up for this computer." | Not configured. Ask your supplier. |
 | "The update check did not work: …" | Usually no internet. Try again later. |
+
+---
+
+## 22c. Locked Screen
+
+### Overview
+
+| | |
+|---|---|
+| **Purpose** | Tells you that your supplier has switched the software off for this shop, and how to get it back. |
+| **When it appears** | At start-up, or while you are working, once your supplier locks this installation. |
+
+![Locked screen](assets/screenshots/123-locked-screen.png)
+
+**Figure 123: The locked screen**
+
+### Controls
+
+| Control | Purpose and effect |
+|---|---|
+| Message | Your supplier's reason, usually with a phone number to call. |
+| **Installation: …** | This shop's id. Your supplier needs it to unlock you. |
+| **Check Again** | Asks your supplier's list again. If the lock has been lifted, the sign-in screen opens and you carry on. If not, it says so. |
+| **Close** | Closes the application. |
+
+### Behaviour
+
+| Situation | What happens |
+|---|---|
+| Locked while you are working | The locked screen appears over everything. Anything typed but not saved is lost. |
+| Locked at start-up | You never reach the sign-in screen. |
+| Internet goes off while locked | It stays locked. Disconnecting does not remove it. |
+| Internet is off and you were never locked | The application works normally. A connection problem never locks a shop. |
+| Supplier unlocks you | **Check Again**, or simply start the application again. |
+
+> **Your data is not touched.** Nothing is deleted or changed by a lock. Everything is as you left
+> it once it is lifted.
 
 ---
 

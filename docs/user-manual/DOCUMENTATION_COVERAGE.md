@@ -1,6 +1,6 @@
 # Documentation Coverage Checklist
 
-**Distribution Management System — User Manual v1.2 — 16 October 2026**
+**Distribution Management System — User Manual v1.3 — 16 October 2026**
 
 This checklist records what the manual covers, how each item was verified, and what is still unverified or missing.
 
@@ -8,7 +8,7 @@ This checklist records what the manual covers, how each item was verified, and w
 
 | Item | Detail |
 |---|---|
-| Application version | Built from the project source on branch `dev`, commit `45c2a99` plus the changes made on 15–16 Oct 2026: screen refresh-on-open, the Receive Payment screen, report export/print, automatic updates and supplier notifications. |
+| Application version | Built from the project source on branch `dev`, commit `45c2a99` plus the changes made on 15–16 Oct 2026: screen refresh-on-open, the Receive Payment screen, report export/print, automatic updates, supplier notifications (with Windows pop-ups) and the remote lock. |
 | Run environment | Windows 11, screen 1920 × 1080, PostgreSQL 18 |
 | Test data | A **separate, empty test area** of the database (schema `docs_manual`) filled only with made-up example data. The existing business data (schema `public`) was **not read or changed** by the application during testing. |
 | Method | Every screen was opened in the real running application. Representative workflows were performed with example data, and the results were checked on related screens and reports. Screenshots were taken directly from the application windows. |
@@ -50,8 +50,9 @@ This checklist records what the manual covers, how each item was verified, and w
 | 22 | Settings (incl. Backup & Restore and Software Update) | ✔ | §22 | 102–104, 121 | Complete (backup/restore dialogs not captured; see §6) |
 | 22a | Notifications window | ✔ | §22a | 117–119 | Complete |
 | 22b | Software Update window | ✔ | §22b | 120 | Complete |
+| 22c | Locked screen | ✔ | §22c | 123 | Complete |
 
-**Screens discovered: 25. Screens documented: 25.**
+**Screens discovered: 26. Screens documented: 26.**
 
 The application also contains a "not built yet" placeholder screen that would appear for an unknown menu item. Every menu item opens a real screen, so users cannot reach it. It is not documented further.
 
@@ -78,6 +79,8 @@ The application also contains a "not built yet" placeholder screen that would ap
 | Software Update ("A new version is available" / "Ready to install") | SCREEN_REFERENCE §22b; W31 | 120 | Tested end to end on a real installation |
 | Restart to install (confirmation) | SCREEN_REFERENCE §22b | — | Tested |
 | Setup needed (first run on an unconfigured PC) | DISTRIBUTOR_GUIDE §3 | — | Tested |
+| New-message card inside the application | SCREEN_REFERENCE §22a | 122 | Tested |
+| Windows notification-area pop-up | USER_MANUAL §16a | — | Tested (seen on screen; not captured as a figure) |
 
 ---
 
@@ -152,8 +155,9 @@ All workflows are in WORKFLOW_GUIDES.md with prerequisites, numbered steps, expe
 | W29 | Export or print a report | Tested (Excel and PDF files produced and opened; print preview rendered) |
 | W30 | Read a notification | Tested (text, poster and video messages, unread counts, mark all as read) |
 | W31 | Install a software update | Tested end to end: offered, downloaded, installed, restarted into the new version, site settings preserved |
+| W32 | What to do if the software is locked | Tested: locked while running, locked at start-up, Check Again after unlocking, and both offline cases |
 
-**Workflows documented: 31.**
+**Workflows documented: 32.**
 
 ---
 
@@ -181,6 +185,11 @@ All workflows are in WORKFLOW_GUIDES.md with prerequisites, numbered steps, expe
 | Open a message | Marked read on this PC; bell count drops | Yes |
 | New version published | Update offered, downloaded, installed on restart | Yes (against a local test feed) |
 | Update installed | Site settings in ProgramData survive; program files replaced | Yes |
+| New message arrives | Windows pop-up and in-app card shown once, bell count rises | Yes |
+| Shop locked by the distributor | Lock screen covers the application; sign-in blocked at start-up | Yes |
+| Shop unlocked | Check Again lets the user straight back in | Yes |
+| Offline, never locked | Application works normally | Yes |
+| Locked, then offline | Stays locked | Yes |
 
 ---
 
@@ -210,6 +219,9 @@ All workflows are in WORKFLOW_GUIDES.md with prerequisites, numbered steps, expe
 | 18 | Behaviour of the notification window without the WebView2 runtime | SCREEN_REFERENCE §22a | Examined only; the runtime is present on this PC |
 | 19 | Delta (part) updates over the internet | DISTRIBUTOR_GUIDE §4 | A delta package was produced and the update applied from a local folder; not tested over GitHub |
 | 20 | SmartScreen warning on an unsigned installer | DISTRIBUTOR_GUIDE §9 | Expected behaviour, not reproduced |
+| 21 | Publishing a lock **to GitHub** from the Publisher | DISTRIBUTOR_GUIDE §5a | The Customer Locks screen was built and opened, but no upload was made (read-only GitHub account on this PC). The customer side was tested against a local list. |
+| 22 | `lockAll` (locking every shop at once) | DISTRIBUTOR_GUIDE §5a | Supported by the format and the service; no button for it and not exercised |
+| 23 | Windows Focus assist holding back the pop-up | TROUBLESHOOTING §9a | Examined only |
 
 ---
 
@@ -217,9 +229,9 @@ All workflows are in WORKFLOW_GUIDES.md with prerequisites, numbered steps, expe
 
 | Item | Count |
 |---|---|
-| Actual application screenshots | **120** (files `01-…` to `121-…`) |
+| Actual application screenshots | **122** (files `01-…` to `123-…`) |
 | Annotated copies with numbered markers | **6** (`01a`, `03a`, `09a`, `25a`, `60a`, `72a`) |
-| Total image files | **126**, in `assets/screenshots/` |
+| Total image files | **128**, in `assets/screenshots/` |
 
 Screenshots of every screen affected by the 15 Oct 2026 changes were retaken: Party Billing (69–75), Party Ledger (76–77), Market Credit (78), Expense Report (85), Daily Closing Stock (86), Daily Sale Report (87–88), Profit & Loss (89), Damage Report (90), plus the new Receive Payment screen (109–113) and the export/print windows (114–116). The obsolete "stale stock" figure was removed, because screens now refresh on their own.
 
@@ -248,10 +260,10 @@ All screenshots come from the real running application. No mock-ups or generated
 
 | Check | Result |
 |---|---|
-| Every discovered screen documented | ✔ 25 / 25 |
+| Every discovered screen documented | ✔ 26 / 26 |
 | Every data-entry form documented field by field | ✔ 14 / 14 (+ import format, report parameter forms and input windows) |
 | Every visible button and control explained | ✔ |
-| Every meaningful workflow has start-to-finish steps | ✔ 31 workflows |
+| Every meaningful workflow has start-to-finish steps | ✔ 32 workflows |
 | Action effects and cross-screen relationships described | ✔ |
 | Screenshots for every major screen and form | ✔ (see §6 for remaining optional states) |
 | Internal image links resolve | ✔ Checked automatically: all image references point to existing files |

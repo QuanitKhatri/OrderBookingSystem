@@ -19,13 +19,17 @@ public class MainForm : Form
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IUpdateService _updateService;
     private readonly IBroadcastFeedClient _broadcastClient;
+    private readonly ILicenseService _licenseService;
     private readonly BroadcastStateStore _broadcastState;
     private readonly ConnectOptions _connectOptions;
     private readonly NotificationBell _bell;
     private readonly System.Windows.Forms.Timer _connectTimer = new();
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly NotifyIcon _trayIcon = new();
     private IReadOnlyList<BroadcastMessage> _broadcasts = [];
     private bool _updatePromptShown;
+    private bool _firstBroadcastLoad = true;
+    private bool _lockHandled;
     private readonly SideNav _sideNav;
     private readonly Panel _contentArea;
     private readonly Panel _userBlock;
@@ -47,12 +51,14 @@ public class MainForm : Form
         IServiceScopeFactory scopeFactory,
         IUpdateService updateService,
         IBroadcastFeedClient broadcastClient,
+        ILicenseService licenseService,
         BroadcastStateStore broadcastState,
         ConnectOptions connectOptions)
     {
         _scopeFactory = scopeFactory;
         _updateService = updateService;
         _broadcastClient = broadcastClient;
+        _licenseService = licenseService;
         _broadcastState = broadcastState;
         _connectOptions = connectOptions;
         Text = "Distribution Management System";
@@ -90,6 +96,8 @@ public class MainForm : Form
 
         _bell = new NotificationBell { Visible = false };
         _bell.Click += (_, _) => ShowNotifications();
+
+        SetUpTrayIcon();
 
         _dateBlock = CreateIconText(Icons.Calendar, DateTime.Now.ToString("dddd, dd MMM yyyy"));
         _userBlock = CreateIconText(Icons.Contact, string.Empty);
@@ -175,6 +183,8 @@ public class MainForm : Form
         {
             _shutdown.Cancel();
             _connectTimer.Stop();
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
             foreach (var scope in _screenScopes.Values) scope.Dispose();
             _shutdown.Dispose();
         };
@@ -243,6 +253,9 @@ public class MainForm : Form
 
     private async Task RunConnectChecksAsync(bool promptForUpdate)
     {
+        await CheckLicenceAsync();
+        if (_lockHandled) return;
+
         await RefreshBroadcastsAsync();
         if (promptForUpdate) await CheckForUpdateAsync(announceNoUpdate: false);
     }
@@ -259,6 +272,18 @@ public class MainForm : Form
             _broadcasts = messages;
             _broadcastState.Prune(messages);
             UpdateBellCount();
+
+            if (_firstBroadcastLoad)
+            {
+                // Opening the application for the first time should not throw a pile of old
+                // messages at the user; the bell count already tells them there is something.
+                _firstBroadcastLoad = false;
+                _broadcastState.SuppressAnnouncementsFor(messages);
+                return;
+            }
+
+            var fresh = _broadcastState.TakeUnannounced(messages);
+            if (fresh.Count > 0) Announce(fresh);
         }
         catch (OperationCanceledException)
         {
@@ -333,6 +358,113 @@ public class MainForm : Form
         };
 
         MessageBox.Show(this, message, "Software Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void SetUpTrayIcon()
+    {
+        try
+        {
+            _trayIcon.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
+        }
+        catch (Exception)
+        {
+            _trayIcon.Icon = SystemIcons.Application;
+        }
+
+        _trayIcon.Text = "Distribution Management System";
+        _trayIcon.Visible = true;
+        _trayIcon.BalloonTipClicked += (_, _) => BringUpNotifications();
+        _trayIcon.Click += (_, _) => { if (_broadcasts.Count > 0) BringUpNotifications(); };
+    }
+
+    /// <summary>Tells the user about messages that arrived while they were working.</summary>
+    private void Announce(IReadOnlyList<BroadcastMessage> fresh)
+    {
+        var newest = fresh[0];
+
+        // The Windows notification area, so it is seen even when the window is behind something.
+        try
+        {
+            _trayIcon.BalloonTipTitle = fresh.Count == 1
+                ? newest.Title
+                : $"{newest.Title}  (+{fresh.Count - 1} more)";
+            _trayIcon.BalloonTipText = newest.Body.Replace('\n', ' ').Replace('\r', ' ').Trim();
+            _trayIcon.BalloonTipIcon = newest.Kind switch
+            {
+                BroadcastKind.Alert => ToolTipIcon.Warning,
+                _ => ToolTipIcon.Info
+            };
+            _trayIcon.ShowBalloonTip(10000);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Debug(ex, "Could not show the tray notification");
+        }
+
+        // And a card inside the application itself, which does not steal focus.
+        try
+        {
+            NotificationPopup.Show(this, fresh, BringUpNotifications);
+            Serilog.Log.Information("Announced {Count} new notification(s): {Title}", fresh.Count, newest.Title);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "Could not show the notification card");
+        }
+    }
+
+    private void BringUpNotifications()
+    {
+        if (IsDisposed) return;
+        if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+        Activate();
+        ShowNotifications();
+    }
+
+    /// <summary>
+    /// Asks the distributor's licence list whether this installation may still be used, and locks
+    /// the application if not.
+    /// </summary>
+    private async Task CheckLicenceAsync()
+    {
+        if (_lockHandled) return;
+
+        LicenseState state;
+        try
+        {
+            state = await _licenseService.CheckAsync(_shutdown.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Debug(ex, "Licence check failed");
+            return;
+        }
+
+        if (!state.IsLocked || _shutdown.IsCancellationRequested || IsDisposed) return;
+
+        _lockHandled = true;
+        ShowLockAndExit(state);
+    }
+
+    private void ShowLockAndExit(LicenseState state)
+    {
+        _connectTimer.Stop();
+        using var form = new LockedForm(_licenseService, state, _connectOptions.SiteId);
+        var result = form.ShowDialog(this);
+
+        if (result == DialogResult.OK)
+        {
+            // The lock was lifted while the screen was open; carry on working.
+            _lockHandled = false;
+            _connectTimer.Start();
+            return;
+        }
+
+        Close();
     }
 
     private record ScreenInfo(string Title, string Subtitle, string Icon);

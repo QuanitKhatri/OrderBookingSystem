@@ -65,6 +65,21 @@ static class Program
         using var host = builder.Build();
         host.Start();
 
+        // Before anything else the distributor may have locked this installation. A shop that is
+        // offline keeps whatever was decided last, so a dropped connection never stops a sale.
+        var licenseService = host.Services.GetRequiredService<ILicenseService>();
+        var connectOptions = host.Services.GetRequiredService<ConnectOptions>();
+        var licenceState = CheckLicenceAtStartup(licenseService);
+        if (licenceState.IsLocked)
+        {
+            using var lockedForm = new LockedForm(licenseService, licenceState, connectOptions.SiteId);
+            if (lockedForm.ShowDialog() != DialogResult.OK)
+            {
+                host.StopAsync().GetAwaiter().GetResult();
+                return;
+            }
+        }
+
         using (var scope = host.Services.CreateScope())
         {
             var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
@@ -86,6 +101,24 @@ static class Program
         }
 
         host.StopAsync().GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Asks for the current lock state, but never holds up start-up for long: if the network is
+    /// slow the last known answer is used, which is unlocked on a PC that has never been locked.
+    /// </summary>
+    private static LicenseState CheckLicenceAtStartup(ILicenseService licenseService)
+    {
+        try
+        {
+            var check = licenseService.CheckAsync();
+            return check.Wait(TimeSpan.FromSeconds(8)) ? check.Result : licenseService.Current;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Licence check at start-up failed");
+            return licenseService.Current;
+        }
     }
 
     private static void ShowUnhandledException(Exception? ex)

@@ -22,17 +22,17 @@ docs/user-manual/
 ├── README.md                  ← this file
 ├── USER_MANUAL.md             ← main manual
 ├── SCREEN_REFERENCE.md        ← every screen, field and control
-├── WORKFLOW_GUIDES.md         ← 31 step-by-step procedures
+├── WORKFLOW_GUIDES.md         ← 32 step-by-step procedures
 ├── TROUBLESHOOTING.md         ← problems and messages
 ├── DOCUMENTATION_COVERAGE.md  ← coverage checklist and open items
 ├── USER_MANUAL.pdf            ← print version of all of the above (if present)
 └── assets/
-    └── screenshots/           ← 120 real screenshots + 6 annotated copies
+    └── screenshots/           ← 122 real screenshots + 6 annotated copies
 ```
 
 ## About the screenshots
 
-- All screenshots were taken from the real running application on 15 and 16 October 2026 (manual version 1.2).
+- All screenshots were taken from the real running application on 15 and 16 October 2026 (manual version 1.3).
 - They show **made-up example data** only (for example "Sunrise Foods", "Al-Madina General Store", "Sample Operator"). No real customer or business data is shown.
 - File names start with a number, and that number is the **figure number** used in the text. For example, *Figure 72* is `72-party-billing-ready.png`.
 - Files ending in `a` (for example `72a-party-billing-annotated.png`) are copies with red numbered markers that match the numbered tables in the text.
@@ -51,6 +51,7 @@ These points apply to the current version and are explained in detail in the man
 8. **Back up every day** (Settings → Backup Database), and only restore with your administrator.
 9. **A bell at the top means your supplier has sent a message.** Click it to read.
 10. **When an update is offered, save your work first**, then Download and Install and Restart.
+11. **If the screen says the software is locked**, call your supplier. Your data is safe.
 
 ## Viewing this documentation
 

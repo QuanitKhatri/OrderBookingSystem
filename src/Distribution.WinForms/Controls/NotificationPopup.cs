@@ -163,6 +163,26 @@ public class NotificationPopup : Form
 
         g.FillPath(Theme.Theme.GetBrush(Theme.Theme.Surface), path);
         g.DrawPath(Theme.Theme.GetPen(_hovered ? Theme.Theme.Primary : Theme.Theme.Border), path);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        ApplyRoundedRegion();
+    }
+
+    private void ApplyRoundedRegion()
+    {
+        using var path = new GraphicsPath();
+        const int d = 16;
+        var rect = new Rectangle(0, 0, Width, Height);
+        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+
+        Region?.Dispose();
         Region = new Region(path);
     }
 
@@ -176,8 +196,12 @@ public class NotificationPopup : Form
         var popup = new NotificationPopup(newMessages[0], newMessages.Count - 1, onOpen);
         popup.Load += (_, _) =>
         {
+            // Just under the bell in the top bar: it points at where the messages live, and it stays
+            // clear of the Windows notification that appears in the bottom-right corner.
             var area = Screen.FromControl(owner).WorkingArea;
-            popup.Location = new Point(area.Right - popup.Width - 24, area.Bottom - popup.Height - 24);
+            int x = Math.Min(owner.Right, area.Right) - popup.Width - 24;
+            int y = Math.Max(area.Top + 8, owner.Top + 96);
+            popup.Location = new Point(Math.Max(area.Left + 8, x), y);
         };
         popup.FormClosed += (_, _) => popup._timer.Dispose();
         popup.Show(owner);

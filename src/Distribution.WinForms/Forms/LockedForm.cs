@@ -110,8 +110,9 @@ public class LockedForm : Form
         card.Controls.Add(closeButton);
 
         Controls.Add(card);
-        Resize += (_, _) => Centre(card);
-        Load += (_, _) => Centre(card);
+        // Maximising finishes after Load, so centre again once the final client size is known.
+        ClientSizeChanged += (_, _) => Centre(card);
+        Shown += (_, _) => Centre(card);
 
         // Alt+F4 and the task bar can still close it; nothing else gets through.
         CancelButton = closeButton;

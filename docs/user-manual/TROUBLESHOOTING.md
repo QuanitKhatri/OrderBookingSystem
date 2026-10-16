@@ -200,6 +200,10 @@ Red messages appear at the bottom-right for about two seconds.
 | Problem or Message | Possible Cause | Recommended Action | How to Verify the Fix |
 |---|---|---|---|
 | No bell appears at the top | Nothing has been sent yet, this PC is offline, or notifications are switched off for it | Check the internet connection. Ask your supplier whether anything was sent. | The bell appears with a number. |
+| No pop-up when a message arrives, only the bell | Messages already waiting the first time you opened the application never pop up; only new ones do. Windows Focus assist can also hold pop-ups back. | Click the bell to read them. Check Windows Settings → System → Notifications if pop-ups never appear. | A later message pops up. |
+| The pop-up disappeared before it could be read | It closes by itself after a few seconds | Nothing is lost. Click the bell. | The message is in the list. |
+| "The software is locked" | Your supplier has switched this installation off | Call the number in the message. After they unlock you, click **Check Again**. See [W32](WORKFLOW_GUIDES.md#w32-what-to-do-if-the-software-is-locked). | The sign-in screen opens. |
+| Locked and no internet | A lock stays until a connection is available to lift it | Connect to the internet, then **Check Again**. | The sign-in screen opens. |
 | A message shows buttons such as "Open picture" instead of the poster or video | The Microsoft Edge WebView2 Runtime is not installed on this PC | Ask your supplier or IT person to install the free **Microsoft Edge WebView2 Runtime**. The buttons work in the meantime. | The poster and video appear inside the window. |
 | The video will not play | The file is not MP4, or the PC cannot reach it | Tell your supplier. They can send it again as MP4. | The video plays. |
 | A message vanished | Your supplier removed it, or it expired | Nothing to do. | — |

@@ -47,6 +47,7 @@ Each guide takes one complete business task from start to finish. Screen and but
 | [W29](#w29-export-or-print-a-report) | Export or print a report | Owner / Operator |
 | [W30](#w30-read-a-notification-from-your-supplier) | Read a notification from your supplier | Everyone |
 | [W31](#w31-install-a-software-update) | Install a software update | Everyone |
+| [W32](#w32-what-to-do-if-the-software-is-locked) | What to do if the software is locked | Everyone |
 
 ---
 
@@ -765,8 +766,10 @@ Also use this to change the built-in administrator's password after installation
 
 **Steps:**
 
-1. Look at the top-right of the window, left of the date. When your supplier has sent something, a
-   **bell** appears with a red number (Figure 117).
+1. When a message arrives you get a Windows pop-up near the clock and a card under the bell inside
+   the application (Figure 122). Click either one to read it straight away.
+2. If you missed them, look at the top-right of the window, left of the date: the **bell** carries a
+   red number (Figure 117).
 2. Click the **bell**. The **Notifications** window opens (Figure 118).
 3. The list on the left shows every current message, newest first. A **red dot** marks one you have
    not read.
@@ -828,3 +831,38 @@ settings are exactly as before.
 | "This copy was not installed by the setup program, so it cannot update itself." | Running from a copied folder | Ask your supplier for the installer and install properly. |
 | "The update check did not work: …" | No internet, usually | Try later. |
 | After restarting, the application asks to be set up again | The computer's settings file was lost | Call your supplier: the database details must be entered again in `C:\ProgramData\DistributionManagementSystem\appsettings.json`. |
+
+---
+
+## W32. What to do if the software is locked
+
+**Purpose:** Get the software working again after your supplier has switched it off.
+
+**What you will see:** A full-screen message, **"The software is locked"**, with your supplier's
+reason underneath (Figure 123). You cannot use the application until it is lifted.
+
+**Steps:**
+
+1. Read the message. It normally gives a reason and a phone number.
+2. Note the line **Installation: …**. That is your shop's id and your supplier needs it.
+3. Call your supplier and settle whatever they ask.
+4. When they tell you it is switched back on, click **Check Again**.
+5. The sign-in screen appears. Sign in and carry on as normal.
+
+**Expected result:** The application opens normally and all your data is exactly as it was.
+
+**Alternative paths:**
+
+- Click **Close** to shut the application and deal with it later. The lock is still there next time.
+- Restarting the application also picks up an unlock, so **Check Again** is only a shortcut.
+
+**Failure and recovery:**
+
+| Message | Cause | Fix |
+|---|---|---|
+| "Still locked. Please contact your supplier." | Your supplier has not lifted it yet | Call them again. |
+| "Could not reach your supplier. Check the internet connection." | This PC is offline | Connect to the internet and press **Check Again**. |
+| It stays locked after disconnecting the internet | That is deliberate | Only your supplier can lift a lock. |
+
+> **Your data is safe.** A lock never deletes or changes anything. Bills, customers and balances are
+> all exactly as you left them.

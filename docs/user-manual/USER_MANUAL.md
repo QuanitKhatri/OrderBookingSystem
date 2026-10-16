@@ -2,7 +2,7 @@
 
 ## Distribution Management System
 
-**Desktop application for Windows · Manual version 1.2 · Updated 16 October 2026**
+**Desktop application for Windows · Manual version 1.3 · Updated 16 October 2026**
 
 This manual explains how to use the Distribution Management System. It is written for the people who use the application every day (owners, operators, store keepers, salespeople and administrators), not for programmers.
 
@@ -258,6 +258,7 @@ Each screen is documented in full, with screenshots, in [SCREEN_REFERENCE.md](SC
 | Settings | SYSTEM | Business details, backup and restore, software update | [§22](SCREEN_REFERENCE.md#22-settings) |
 | Notifications window | Bell in the top bar | Messages from your supplier | [§22a](SCREEN_REFERENCE.md#22a-notifications-window) |
 | Software Update window | Appears by itself, or from Settings | Installing a new version | [§22b](SCREEN_REFERENCE.md#22b-software-update-window) |
+| Locked screen | Appears by itself if your supplier locks the software | What to do when it appears | [§22c](SCREEN_REFERENCE.md#22c-locked-screen) |
 
 ---
 
@@ -541,9 +542,23 @@ holiday notices. They may include a poster or a video.
 
 ### How you know a message has arrived
 
-A **bell** appears at the top-right of the window with a red number: how many messages you have not
-read yet. The application looks for new messages when you start it and about once an hour after
-that.
+When a new message arrives you are told in three ways:
+
+1. A **Windows pop-up** appears near the clock, the same way Windows tells you about anything else.
+   It shows even when the application is behind another window.
+2. A **card** slides in under the bell inside the application for a few seconds. Click it to read
+   the message; click the small **✕** to dismiss it.
+3. The **bell** at the top-right keeps a red number: how many messages you have not read yet.
+
+![New message pop-up inside the application](assets/screenshots/122-notification-popup.png)
+
+**Figure 122: The card that appears inside the application**
+
+The application looks for new messages when you start it and about once an hour after that.
+
+> Messages that were already waiting the first time you ever open the application do not pop up;
+> the bell number tells you they are there. Only messages that arrive while you are working pop up,
+> and each one only once.
 
 ![Notification bell](assets/screenshots/117-notification-bell.png)
 
@@ -636,6 +651,40 @@ You may see:
 
 ---
 
+## 16c. If the Software Is Locked
+
+Your supplier can switch the software off from their side, for example while a payment is pending.
+If that happens you see a full-screen message instead of the usual window:
+
+![Locked screen](assets/screenshots/123-locked-screen.png)
+
+**Figure 123: The screen shown when the software is locked**
+
+| What you see | Meaning |
+|---|---|
+| **The software is locked** | You cannot use the application until your supplier switches it back on. |
+| The message under it | Your supplier's reason, usually with a phone number. |
+| **Installation: …** | Your shop's id. Tell your supplier this when you call. |
+| **Check Again** | Asks again straight away. Use it after your supplier says they have unlocked you. |
+| **Close** | Closes the application. |
+
+**What to do**
+
+1. Read the message and call your supplier on the number shown.
+2. Once they tell you it is switched back on, click **Check Again**. The sign-in screen appears and
+   you can carry on.
+3. If **Check Again** says *"Could not reach your supplier"*, check the internet connection and try
+   again.
+
+**Points to note**
+
+- **Your data is safe.** Nothing is deleted. Everything is exactly as you left it once the lock is
+  lifted.
+- Disconnecting the internet does **not** remove the lock.
+- You need an internet connection for the unlock to reach your computer.
+
+---
+
 ## 17. Frequently Asked Questions
 
 **Q: How do I print or save a report?**
@@ -695,6 +744,13 @@ A: No. You are offered it again at the next check, or you can use **Settings →
 
 **Q: Can I reply to a notification?**
 A: No. Notifications only come one way. Phone your supplier to reply.
+
+**Q: A pop-up appeared near the clock and then disappeared. Where did it go?**
+A: Nothing is lost. Click the **bell** at the top-right to read it whenever you like.
+
+**Q: The screen says the software is locked. What do I do?**
+A: Call your supplier on the number shown. See [Section 16c](#16c-if-the-software-is-locked). Your
+data is safe.
 
 **Q: The F2 and Ctrl+S keys do not work.**
 A: The keyboard shortcuts shown on buttons are not active in this version. Click the buttons.
@@ -792,7 +848,7 @@ A: In this version bill numbers always start with BILL-.
 | Back up data | SYSTEM → **Settings** | **Backup Database** |
 | Print or save a report | Any report screen | **View Report** → **Export Excel** / **Export PDF** / **Print** |
 | Refresh a report | Any report screen | **View Report**, **View Ledger** or **Apply Filter** |
-| Read a message from my supplier | Top bar | Click the **🔔 bell** |
+| Read a message from my supplier | Top bar | Click the **🔔 bell**, or click the pop-up card |
 | Check for a new version | SYSTEM → **Settings** | **Check for Updates** |
 | Sign out | — | Close the window (**X**) |
 

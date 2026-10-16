@@ -15,8 +15,11 @@ Your customers' own manual is in [user-manual/](user-manual/README.md).
  │ release.ps1      │ ─────> │  v1.2.0       │ ───────> │ "A new version is   │
  │ (build + upload) │        │  release      │          │  available"         │
  ├──────────────────┤        ├───────────────┤          ├─────────────────────┤
- │ Publisher app    │ ─────> │  "broadcasts" │ ───────> │ 🔔 bell with the    │
- │ (notifications)  │        │  release      │          │    message          │
+ │ Publisher app    │ ─────> │  "broadcasts" │ ───────> │ Windows pop-up +    │
+ │ (notifications)  │        │  release      │          │ 🔔 bell             │
+ ├──────────────────┤        ├───────────────┤          ├─────────────────────┤
+ │ Publisher app    │ ─────> │  licenses     │ ───────> │ software locked     │
+ │ (customer locks) │        │  .json        │          │ until you unlock    │
  └──────────────────┘        └───────────────┘          └─────────────────────┘
 ```
 
@@ -76,15 +79,21 @@ Do this once per computer.
    The .NET runtime is **not** needed — it is built into the file.
 4. Start the application. The first time it will say **"This computer has not been set up yet"**
    and open a settings file.
-5. In that file, fill in the shop's database details:
+5. In that file, fill in the shop's database details **and give the shop a Site Id** (you need it
+   to lock or unlock that shop later):
    ```
    C:\ProgramData\DistributionManagementSystem\appsettings.json
    ```
    ```json
    "ConnectionStrings": {
      "Default": "Host=localhost;Port=5433;Database=distribution;Username=distribution_app;Password=THE-REAL-PASSWORD"
+   },
+   "Connect": {
+     "SiteId": "AL-MADINA-01"
    }
    ```
+
+   Give each shop its own Site Id and write it down. Keep a list of which id belongs to which shop.
 6. Save the file and start the application again.
 
 > **Why this file sits outside the program folder:** an update replaces everything inside the
@@ -170,10 +179,49 @@ check. You cannot edit a sent message; remove it and send a corrected one.
 
 ---
 
+## 5a. Locking a customer's software
+
+If a shop stops paying, you can switch their software off from your PC, and switch it back on when
+they settle.
+
+1. Open the **Distribution Publisher**, **Customer Locks** tab.
+2. **Site Id**: the id you wrote into that shop's settings file, for example `AL-MADINA-01`.
+   It must match exactly.
+3. **Shop name**: your own note so you can recognise it in the list.
+4. **Lock message**: what they will read on their screen. Put a reason and your phone number,
+   for example `Payment for October is pending. Please call 0300-0000000.`
+5. Click **Lock this shop** and confirm.
+
+At their next check (within the hour, or when they next start the application) the shop sees a
+full-screen message and cannot use the software at all.
+
+**To switch it back on:** select the shop in the list, click **Unlock this shop**. They can press
+**Check Again** on the lock screen to come back in straight away, or simply restart.
+
+**How it behaves**
+
+| Situation | What happens |
+|---|---|
+| Shop is online when you lock | Locked within the hour, or at their next start. |
+| Shop is offline when you lock | Keeps working until it next reaches the internet, then locks. |
+| Shop is locked and then goes offline | **Stays locked.** Disconnecting the internet does not unlock it. |
+| Shop is not listed at all | Allowed to work. A shop is never stopped because you forgot to add it. |
+| Your internet is down | Nothing changes for anybody; the last published list keeps applying. |
+
+> **Be careful.** Locking stops the shop billing customers completely. Make sure the Site Id is the
+> right one before you confirm: the list in the tab shows which shop each id belongs to.
+
+> **Lock everything at once** is possible in the published file (`lockAll`) but there is no button
+> for it, on purpose. Do not use it unless you really mean every shop.
+
+---
+
 ## 6. What the customer sees
 
 | Where | What |
 |---|---|
+| Windows notification area | A pop-up the moment a new message arrives, even when the window is behind something |
+| Inside the application | A card under the bell for a few seconds, which they can click to read |
 | Top bar | 🔔 bell with the number of unread messages |
 | Notifications window | List on the left, the full message with poster or video on the right |
 | Settings screen | Installed version, and a **Check for Updates** button |
@@ -190,11 +238,14 @@ In `C:\ProgramData\DistributionManagementSystem\appsettings.json` on each custom
 | Setting | Meaning | Normal value |
 |---|---|---|
 | `ConnectionStrings:Default` | That shop's database | Filled in at installation |
+| `Connect:SiteId` | This shop's id, used for locking | Set at installation, for example `AL-MADINA-01` |
 | `Connect:RepositoryUrl` | Where updates and notifications come from | `https://github.com/QuanitKhatri/OrderBookingSystem` |
 | `Connect:UpdateSource` | A folder or address to use instead of GitHub | Empty |
 | `Connect:BroadcastFeedUrl` | A different notification feed | Empty |
 | `Connect:UpdatesEnabled` | `false` keeps a shop on a fixed version | `true` |
 | `Connect:BroadcastsEnabled` | `false` hides notifications for that shop | `true` |
+| `Connect:LicenseCheckEnabled` | `false` means that PC can never be locked | `true` |
+| `Connect:LicenseFeedUrl` | A different lock list | Empty |
 | `Connect:CheckIntervalMinutes` | How often to check, 5 to 1440 | `60` |
 | `Connect:AllowPrerelease` | Also offer test versions | `false` |
 
@@ -208,6 +259,9 @@ In `C:\ProgramData\DistributionManagementSystem\appsettings.json` on each custom
 | Customer never sees the update | Check their internet. Have them use **Settings → Check for Updates** and read the message. |
 | *"This copy was not installed by the setup program"* | They are running a copied folder, not the installed one. Reinstall with `Setup.exe`. |
 | Customer sees no bell | No notification has been sent, or `BroadcastsEnabled` is `false`, or the PC is offline. |
+| Customer gets no pop-up but the bell shows messages | Messages that were already there when the application first ran are not popped up, only new ones. Windows Focus assist can also hold notifications back. |
+| Lock does not take effect | The Site Id does not match that shop's settings file exactly, or the shop has not been online since you locked it. Check the id in the Customer Locks list. |
+| A locked shop needs to work right now | Unlock them in the Publisher and ask them to press **Check Again** on the lock screen. |
 | Picture or video does not show, only text and buttons | The WebView2 runtime is missing on that PC. Install **Microsoft Edge WebView2 Runtime** (free from Microsoft). The message text still works without it. |
 | After an update the app asks to be set up again | `C:\ProgramData\DistributionManagementSystem\appsettings.json` was deleted. Put the database details back. |
 | Video will not play | Convert it to MP4 (H.264). |
@@ -226,3 +280,6 @@ Technical logs are at `C:\ProgramData\DistributionManagementSystem\logs\`.
 - **Notifications are public.** Anyone who finds the repository can read them. Do not put prices,
   customer names or anything private in a notification.
 - **A sent notification cannot be edited**, only removed.
+- **Locking is a serious step.** The shop cannot bill anyone while locked. Agree it with them first,
+  and always put a phone number in the lock message so they can reach you.
+- **A shop with no Site Id cannot be locked.** Set one at installation.
