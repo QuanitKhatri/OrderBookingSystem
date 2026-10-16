@@ -1,4 +1,4 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 using Distribution.Services.Auth;
 using Distribution.WinForms.Controls;
 using Icons = Distribution.WinForms.Theme.Icons;
@@ -245,6 +245,9 @@ internal class LoginBackgroundPanel : Panel
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.Clear(Theme.Theme.Background);
 
+        // Below this the wave is drawn with a gradient, which needs a rectangle with real sides.
+        if (Width <= 0 || Height <= 0) return;
+
         using (var blobBrush = new SolidBrush(Color.FromArgb(60, Theme.Theme.IconBadgeBackground)))
         {
             g.FillEllipse(blobBrush, -80, -80, 260, 260);
@@ -283,6 +286,10 @@ internal class LoginCardPanel : Panel
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        // Nothing to draw when the control has been squeezed to nothing (minimised
+        // window, or mid-layout): a rounded path cannot be built over an empty rectangle.
+        if (Width < 2 || Height < 2) return;
+
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 

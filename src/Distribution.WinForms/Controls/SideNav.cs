@@ -1,4 +1,4 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 
 namespace Distribution.WinForms.Controls;
 
@@ -76,6 +76,10 @@ public class SideNav : Panel
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        // While the window is minimised, or mid-layout, the panel can be zero high. A gradient
+        // brush cannot be built over an empty rectangle, so there is simply nothing to draw.
+        if (ClientRectangle.Width <= 0 || ClientRectangle.Height <= 0) return;
+
         var g = e.Graphics;
         using var brush = new LinearGradientBrush(ClientRectangle, Theme.Theme.SidebarGradientTop, Theme.Theme.SidebarGradientBottom, LinearGradientMode.Vertical);
         g.FillRectangle(brush, ClientRectangle);
@@ -188,6 +192,10 @@ internal class NavItemRow : Panel
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        // Nothing to draw when the control has been squeezed to nothing (minimised
+        // window, or mid-layout): a rounded path cannot be built over an empty rectangle.
+        if (Width < 2 || Height < 2) return;
+
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;

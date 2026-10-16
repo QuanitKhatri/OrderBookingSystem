@@ -1,4 +1,4 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 
 namespace Distribution.WinForms.Controls;
 
@@ -61,6 +61,10 @@ public class ThemedButton : Button
 
     protected override void OnPaint(PaintEventArgs pevent)
     {
+        // Nothing to draw when the control has been squeezed to nothing (minimised
+        // window, or mid-layout): a rounded path cannot be built over an empty rectangle.
+        if (Width < 2 || Height < 2) return;
+
         var g = pevent.Graphics;
 
         // The rounded shape leaves the corners unpainted, and ButtonBase does not reliably paint them

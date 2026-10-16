@@ -1,4 +1,4 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 using Distribution.Connect;
 
 namespace Distribution.WinForms.Controls;
@@ -53,6 +53,10 @@ public class BroadcastListItem : Panel
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        // Nothing to draw when the control has been squeezed to nothing (minimised
+        // window, or mid-layout): a rounded path cannot be built over an empty rectangle.
+        if (Width < 2 || Height < 2) return;
+
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;

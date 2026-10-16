@@ -612,6 +612,10 @@ internal class TopBarPanel : Panel
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        // Zero width or height (minimised window, or mid-layout) has nothing to paint, and a
+        // gradient brush cannot be built over an empty rectangle.
+        if (ClientRectangle.Width <= 0 || ClientRectangle.Height <= 0) return;
+
         using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
             ClientRectangle, Theme.Theme.Surface, Theme.Theme.IconBadgeBackground,
             System.Drawing.Drawing2D.LinearGradientMode.Horizontal);

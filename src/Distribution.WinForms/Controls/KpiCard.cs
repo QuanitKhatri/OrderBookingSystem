@@ -101,6 +101,10 @@ public class KpiCard : Panel
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        // A card squeezed to nothing (minimised window, or mid-layout) leaves an empty rectangle,
+        // which neither the rounded path nor the gradient brush can be built over.
+        if (Width < 2 || Height < 2) return;
+
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
