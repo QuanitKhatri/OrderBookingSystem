@@ -1,4 +1,4 @@
-using Distribution.Connect;
+﻿using Distribution.Connect;
 using Distribution.Data;
 using Distribution.Services.Auth;
 using Distribution.WinForms.Controls;
@@ -559,9 +559,16 @@ public class MainForm : Form
 
     private Control BuildScreen(string key)
     {
+        var username = CurrentUser?.Username ?? string.Empty;
+        var scope = _scopeFactory.CreateScope();
+        _screenScopes[key] = scope;
+        var sp = scope.ServiceProvider;
+
+        // The dashboard reads today's figures, so like every other screen it needs its own scope:
+        // that is what lets the reload forget rows another screen has since changed.
         if (key == "dashboard")
         {
-            var dashboard = new DashboardControl();
+            var dashboard = ActivatorUtilities.CreateInstance<DashboardControl>(sp);
             dashboard.NavigateRequested += (_, targetKey) =>
             {
                 _sideNav.SetActive(targetKey, raiseEvent: false);
@@ -569,11 +576,6 @@ public class MainForm : Form
             };
             return dashboard;
         }
-
-        var username = CurrentUser?.Username ?? string.Empty;
-        var scope = _scopeFactory.CreateScope();
-        _screenScopes[key] = scope;
-        var sp = scope.ServiceProvider;
 
         return key switch
         {
