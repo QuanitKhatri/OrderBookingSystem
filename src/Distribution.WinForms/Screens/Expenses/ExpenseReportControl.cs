@@ -1,14 +1,18 @@
+using Distribution.Reports;
+using Distribution.Services.Admin;
 using Distribution.Services.Expenses;
 using Distribution.WinForms.Controls;
+using Distribution.WinForms.Printing;
 using Distribution.WinForms.Screens.Masters;
 using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Expenses;
 
-public class ExpenseReportControl : UserControl
+public class ExpenseReportControl : UserControl, IRefreshableScreen
 {
     private readonly IExpenseService _service;
     private readonly IExpenseCategoryService _categoryService;
+    private readonly ISettingsService _settingsService;
 
     private readonly DateTimePicker _fromDate;
     private readonly DateTimePicker _toDate;
@@ -19,10 +23,14 @@ public class ExpenseReportControl : UserControl
     private readonly ThemedGrid _summaryGrid;
     private readonly EmptyState _emptyState;
 
-    public ExpenseReportControl(IExpenseService service, IExpenseCategoryService categoryService)
+    private List<ExpenseCategorySummary> _summary = [];
+    private List<ExpenseListItem> _details = [];
+
+    public ExpenseReportControl(IExpenseService service, IExpenseCategoryService categoryService, ISettingsService settingsService)
     {
         _service = service;
         _categoryService = categoryService;
+        _settingsService = settingsService;
         BackColor = Theme.Theme.Background;
         AutoScroll = true;
 
@@ -41,6 +49,7 @@ public class ExpenseReportControl : UserControl
         var btnRow = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Margin = new Padding(0, 16, 0, 0) };
         _filterButton = new ThemedButton { Text = "Apply Filter", Width = 150, IconGlyph = Icons.Search };
         btnRow.Controls.Add(_filterButton);
+        ReportOutput.AddButtons(btnRow, BuildReportAsync);
 
         filterCard.ContentArea.Controls.Add(btnRow);
         filterCard.ContentArea.Controls.Add(row);
@@ -69,7 +78,12 @@ public class ExpenseReportControl : UserControl
         Controls.Add(summaryCard);
         Controls.Add(filterCard);
 
-        _filterButton.Click += async (_, _) => await LoadDetailAsync();
+        // Apply Filter also refreshes the month-to-date card, which otherwise never reloaded.
+        _filterButton.Click += async (_, _) =>
+        {
+            await LoadSummaryAsync();
+            await LoadDetailAsync();
+        };
 
         Load += async (_, _) =>
         {
@@ -79,30 +93,73 @@ public class ExpenseReportControl : UserControl
         };
     }
 
+    public async Task RefreshAsync()
+    {
+        await LoadCategoriesAsync();
+        await LoadSummaryAsync();
+        await LoadDetailAsync();
+    }
+
     private async Task LoadCategoriesAsync()
     {
         var categories = await _categoryService.GetActiveLookupAsync();
         var items = new List<object> { new { Id = (int?)null, Name = "All categories" } };
         items.AddRange(categories.Select(c => new { Id = (int?)c.Id, c.Name }));
-        _categoryFilterCombo.DataSource = items;
+        Shared.Rebind(_categoryFilterCombo, items);
     }
 
     private async Task LoadSummaryAsync()
     {
-        var summary = await _service.GetCategorySummaryAsync();
+        _summary = await _service.GetCategorySummaryAsync();
         _summaryGrid.Rows.Clear();
-        foreach (var s in summary) _summaryGrid.Rows.Add(s.CategoryName, s.TodayTotal, s.MonthToDateTotal, Math.Round(s.SharePct, 1));
+        foreach (var s in _summary) _summaryGrid.Rows.Add(s.CategoryName, s.TodayTotal, s.MonthToDateTotal, Math.Round(s.SharePct, 1));
         _summaryGrid.RightAlignNumericColumns();
+    }
+
+    private async Task<ReportDocument?> BuildReportAsync()
+    {
+        var subtitle = $"{_fromDate.Value:dd MMM yyyy} to {_toDate.Value:dd MMM yyyy}  |  {_categoryFilterCombo.Text}";
+        var report = await ReportOutput.CreateAsync(_settingsService, "Expense Report", subtitle);
+
+        var summaryTable = new ReportTable("Category-wise Summary (Month to Date)",
+            new ReportColumn("Category", Width: 2.4f),
+            new ReportColumn("Today", ReportColumnKind.Money),
+            new ReportColumn("Month to Date", ReportColumnKind.Money),
+            new ReportColumn("% Share", ReportColumnKind.Percent))
+        {
+            EmptyMessage = "No expenses this month."
+        };
+        foreach (var s in _summary) summaryTable.AddRow(s.CategoryName, s.TodayTotal, s.MonthToDateTotal, Math.Round(s.SharePct, 1));
+        if (_summary.Count > 0)
+            summaryTable.Totals = ["Total", _summary.Sum(s => s.TodayTotal), _summary.Sum(s => s.MonthToDateTotal), null];
+        report.Tables.Add(summaryTable);
+
+        var detailTable = new ReportTable("Expense Details",
+            new ReportColumn("Voucher No", Width: 1.3f),
+            new ReportColumn("Date", ReportColumnKind.Date),
+            new ReportColumn("Category", Width: 2f),
+            new ReportColumn("Amount", ReportColumnKind.Money),
+            new ReportColumn("Paid From"),
+            new ReportColumn("Description", Width: 2.4f))
+        {
+            EmptyMessage = "No expenses in this range."
+        };
+        foreach (var r in _details) detailTable.AddRow(r.VoucherNo, r.Date, r.CategoryName, r.Amount, r.PaidFrom, r.Description);
+        if (_details.Count > 0)
+            detailTable.Totals = ["Total", null, "", _details.Sum(r => r.Amount), "", ""];
+        report.Tables.Add(detailTable);
+
+        return report;
     }
 
     private async Task LoadDetailAsync()
     {
         int? categoryId = _categoryFilterCombo.SelectedValue as int?;
-        var rows = await _service.SearchAsync(_fromDate.Value.Date, _toDate.Value.Date, categoryId);
+        _details = await _service.SearchAsync(_fromDate.Value.Date, _toDate.Value.Date, categoryId);
         _detailGrid.Rows.Clear();
-        foreach (var r in rows) _detailGrid.Rows.Add(r.VoucherNo, r.Date.ToString("dd MMM yyyy"), r.CategoryName, r.Amount, r.PaidFrom);
+        foreach (var r in _details) _detailGrid.Rows.Add(r.VoucherNo, r.Date.ToString("dd MMM yyyy"), r.CategoryName, r.Amount, r.PaidFrom);
         _detailGrid.RightAlignNumericColumns();
-        _detailGrid.Visible = rows.Count > 0;
-        _emptyState.Visible = rows.Count == 0;
+        _detailGrid.Visible = _details.Count > 0;
+        _emptyState.Visible = _details.Count == 0;
     }
 }

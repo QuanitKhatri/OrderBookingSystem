@@ -1,13 +1,17 @@
+using Distribution.Reports;
+using Distribution.Services.Admin;
 using Distribution.Services.Reports;
 using Distribution.WinForms.Controls;
+using Distribution.WinForms.Printing;
 using Distribution.WinForms.Screens.Masters;
 using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Reports;
 
-public class DamageReportControl : UserControl
+public class DamageReportControl : UserControl, IRefreshableScreen
 {
     private readonly IReportService _service;
+    private readonly ISettingsService _settingsService;
     private readonly DateTimePicker _fromDate;
     private readonly DateTimePicker _toDate;
     private readonly ComboBox _groupByCombo;
@@ -15,9 +19,10 @@ public class DamageReportControl : UserControl
     private readonly ThemedGrid _grid;
     private readonly EmptyState _emptyState;
 
-    public DamageReportControl(IReportService service)
+    public DamageReportControl(IReportService service, ISettingsService settingsService)
     {
         _service = service;
+        _settingsService = settingsService;
         BackColor = Theme.Theme.Background;
 
         var card = new CardPanel { Dock = DockStyle.Top, AutoHeight = true, Title = "Damage Report", Subtitle = "Grouped loss summary for any date range", IconGlyph = Icons.Admin };
@@ -37,6 +42,7 @@ public class DamageReportControl : UserControl
         var btnRow = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Margin = new Padding(0, 16, 0, 0) };
         _viewButton = new ThemedButton { Text = "View Report", Width = 150, IconGlyph = Icons.Search };
         btnRow.Controls.Add(_viewButton);
+        ReportOutput.AddButtons(btnRow, BuildReportAsync);
 
         card.ContentArea.Controls.Add(btnRow);
         card.ContentArea.Controls.Add(row);
@@ -57,6 +63,38 @@ public class DamageReportControl : UserControl
 
         _viewButton.Click += async (_, _) => await LoadAsync();
         Load += async (_, _) => await LoadAsync();
+    }
+
+    public Task RefreshAsync() => LoadAsync();
+
+    private async Task<ReportDocument?> BuildReportAsync()
+    {
+        var groupBy = _groupByCombo.SelectedItem as string ?? "Product";
+        var subtitle = $"{_fromDate.Value:dd MMM yyyy} to {_toDate.Value:dd MMM yyyy}  |  Grouped by {groupBy}";
+        var report = await ReportOutput.CreateAsync(_settingsService, "Damage Report", subtitle);
+
+        var table = new ReportTable(null,
+            new ReportColumn(groupBy, Width: 2.6f),
+            new ReportColumn("Qty", ReportColumnKind.Quantity),
+            new ReportColumn("Loss Amount", ReportColumnKind.Money),
+            new ReportColumn("Main Reason", Width: 2f))
+        {
+            EmptyMessage = "No damage in this range."
+        };
+
+        decimal totalQty = 0, totalLoss = 0;
+        foreach (DataGridViewRow gridRow in _grid.Rows)
+        {
+            var qty = gridRow.Cells[1].Value as decimal? ?? 0;
+            var loss = gridRow.Cells[2].Value as decimal? ?? 0;
+            totalQty += qty;
+            totalLoss += loss;
+            table.AddRow(gridRow.Cells[0].Value, qty, loss, gridRow.Cells[3].Value);
+        }
+
+        if (table.Rows.Count > 0) table.Totals = ["Total", totalQty, totalLoss, ""];
+        report.Tables.Add(table);
+        return report;
     }
 
     private async Task LoadAsync()

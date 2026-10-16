@@ -135,7 +135,7 @@ public class SaleService(DistributionDbContext db, IStockQueryService stockQuery
                 CustomerId = model.CustomerId,
                 Date = model.Date,
                 Amount = model.CashReceived,
-                PaidBy = PaidBy.Cash,
+                PaidBy = model.PaidBy,
                 SaleId = sale.Id,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = performedBy

@@ -1,13 +1,17 @@
+using Distribution.Reports;
+using Distribution.Services.Admin;
 using Distribution.Services.Reports;
 using Distribution.WinForms.Controls;
+using Distribution.WinForms.Printing;
 using Distribution.WinForms.Screens.Masters;
 using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Reports;
 
-public class ProfitLossControl : UserControl
+public class ProfitLossControl : UserControl, IRefreshableScreen
 {
     private readonly IReportService _service;
+    private readonly ISettingsService _settingsService;
     private readonly DateTimePicker _fromDate;
     private readonly DateTimePicker _toDate;
     private readonly ThemedButton _viewButton;
@@ -15,9 +19,10 @@ public class ProfitLossControl : UserControl
     private readonly CheckBox _includeSelfCheck;
     private readonly ThemedGrid _grid;
 
-    public ProfitLossControl(IReportService service)
+    public ProfitLossControl(IReportService service, ISettingsService settingsService)
     {
         _service = service;
+        _settingsService = settingsService;
         BackColor = Theme.Theme.Background;
 
         var card = new CardPanel { Dock = DockStyle.Top, AutoHeight = true, Title = "Profit & Loss", Subtitle = "Net sale, cost, expenses and net profit", IconGlyph = Icons.Up };
@@ -39,6 +44,7 @@ public class ProfitLossControl : UserControl
         var btnRow = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Margin = new Padding(0, 8, 0, 0) };
         _viewButton = new ThemedButton { Text = "View Report", Width = 150, IconGlyph = Icons.Search };
         btnRow.Controls.Add(_viewButton);
+        ReportOutput.AddButtons(btnRow, BuildReportAsync);
 
         card.ContentArea.Controls.Add(btnRow);
         card.ContentArea.Controls.Add(toggleRow);
@@ -56,6 +62,32 @@ public class ProfitLossControl : UserControl
         _viewButton.Click += async (_, _) => await LoadAsync();
         _withExpensesCheck.CheckedChanged += (_, _) => { _includeSelfCheck.Enabled = _withExpensesCheck.Checked; };
         Load += async (_, _) => await LoadAsync();
+    }
+
+    public Task RefreshAsync() => LoadAsync();
+
+    private async Task<ReportDocument?> BuildReportAsync()
+    {
+        var subtitle = $"{_fromDate.Value:dd MMM yyyy} to {_toDate.Value:dd MMM yyyy}";
+        var report = await ReportOutput.CreateAsync(_settingsService, "Profit & Loss", subtitle);
+
+        var table = new ReportTable(null,
+            new ReportColumn("Line Item", Width: 3f),
+            new ReportColumn("Amount (Rs)", ReportColumnKind.Money))
+        {
+            EmptyMessage = "No figures for this period."
+        };
+
+        // Mirror exactly what the grid shows, including the With Expenses / Self Expense toggles.
+        foreach (DataGridViewRow gridRow in _grid.Rows)
+        {
+            var label = gridRow.Cells[0].Value as string ?? string.Empty;
+            table.AddRow(label, gridRow.Cells[1].Value as decimal?);
+            if (label == "Gross Profit" || label.StartsWith("Net Profit")) table.EmphasisRows.Add(table.Rows.Count - 1);
+        }
+
+        report.Tables.Add(table);
+        return report;
     }
 
     private async Task LoadAsync()

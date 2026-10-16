@@ -64,4 +64,7 @@ public static class Icons
     public const string Eye = "";
     public const string EyeOff = "";
     public const string Import = "";
+    public const string Print = "";
+    public const string Bell = "";
+    public const string Sync = "";
 }

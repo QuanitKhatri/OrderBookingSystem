@@ -1,14 +1,17 @@
+using Distribution.Connect;
 using Distribution.Services.Admin;
 using Distribution.WinForms.Controls;
+using Distribution.WinForms.Forms;
 using Distribution.WinForms.Screens.Masters;
 using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Admin;
 
-public class SettingsControl : UserControl
+public class SettingsControl : UserControl, IRefreshableScreen
 {
     private readonly ISettingsService _service;
     private readonly IBackupService _backupService;
+    private readonly IUpdateService _updateService;
     private readonly string _currentUser;
 
     private readonly TextBox _companyNameBox;
@@ -19,13 +22,16 @@ public class SettingsControl : UserControl
     private readonly ThemedButton _saveButton;
     private readonly ThemedButton _backupButton;
     private readonly ThemedButton _restoreButton;
+    private readonly ThemedButton _checkUpdateButton;
+    private readonly Label _versionLabel;
 
     private int _defaultWarehouseId;
 
-    public SettingsControl(ISettingsService service, IBackupService backupService, string currentUser)
+    public SettingsControl(ISettingsService service, IBackupService backupService, IUpdateService updateService, string currentUser)
     {
         _service = service;
         _backupService = backupService;
+        _updateService = updateService;
         _currentUser = currentUser;
         BackColor = Theme.Theme.Background;
 
@@ -70,9 +76,30 @@ public class SettingsControl : UserControl
         backupRow.Controls.Add(_restoreButton);
         backupCard.ContentArea.Controls.Add(backupRow);
 
+        var updateCard = new CardPanel { Dock = DockStyle.Top, AutoHeight = true, Title = "Software Update", Subtitle = "Check whether a newer version is available", IconGlyph = Icons.Download, Margin = new Padding(0, 16, 0, 0) };
+
+        _versionLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 24,
+            Font = Theme.Theme.BaseFont,
+            ForeColor = Theme.Theme.Text,
+            UseMnemonic = false,
+            Text = $"Installed version: {_updateService.CurrentVersion}"
+        };
+
+        var updateRow = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Margin = new Padding(0, 8, 0, 0) };
+        _checkUpdateButton = new ThemedButton { Text = "Check for Updates", Width = 190, IconGlyph = Icons.Sync };
+        updateRow.Controls.Add(_checkUpdateButton);
+
+        updateCard.ContentArea.Controls.Add(updateRow);
+        updateCard.ContentArea.Controls.Add(_versionLabel);
+
+        Controls.Add(updateCard);
         Controls.Add(backupCard);
         Controls.Add(card);
 
+        _checkUpdateButton.Click += async (_, _) => await CheckForUpdateAsync();
         _saveButton.Click += async (_, _) => await SaveAsync();
         _backupButton.Click += async (_, _) => await BackupAsync();
         _restoreButton.Click += async (_, _) => await RestoreAsync();
@@ -113,6 +140,43 @@ public class SettingsControl : UserControl
             Toast.Show(FindForm()!, $"Restore failed: {ex.Message}", ToastKind.Danger);
         }
     }
+
+    private async Task CheckForUpdateAsync()
+    {
+        _checkUpdateButton.Enabled = false;
+        _checkUpdateButton.Text = "Checking…";
+        try
+        {
+            var result = await _updateService.CheckAsync();
+            _versionLabel.Text = $"Installed version: {result.CurrentVersion ?? _updateService.CurrentVersion}";
+
+            if (result.HasUpdate)
+            {
+                using var form = new UpdateForm(_updateService, result);
+                form.ShowDialog(FindForm());
+                return;
+            }
+
+            var message = result.Status switch
+            {
+                UpdateCheckStatus.UpToDate => $"You already have the latest version ({result.CurrentVersion}).",
+                UpdateCheckStatus.NotInstalled =>
+                    "This copy was not installed by the setup program, so it cannot update itself.\n\n" +
+                    "Ask your supplier for the installer to get automatic updates.",
+                UpdateCheckStatus.Disabled => "Updates are switched off for this computer.",
+                UpdateCheckStatus.NotConfigured => "No update source is set up for this computer.",
+                _ => $"The update check did not work: {result.Error}"
+            };
+            MessageBox.Show(FindForm(), message, "Software Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        finally
+        {
+            _checkUpdateButton.Enabled = true;
+            _checkUpdateButton.Text = "Check for Updates";
+        }
+    }
+
+    public Task RefreshAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {

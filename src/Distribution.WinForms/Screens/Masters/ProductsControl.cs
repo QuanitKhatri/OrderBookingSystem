@@ -5,7 +5,7 @@ using Distribution.WinForms.Theme;
 
 namespace Distribution.WinForms.Screens.Masters;
 
-public class ProductsControl : UserControl
+public class ProductsControl : UserControl, IRefreshableScreen
 {
     private readonly IProductService _service;
     private readonly ICompanyService _companyService;
@@ -181,6 +181,12 @@ public class ProductsControl : UserControl
 
     private bool _suppressFilterEvents;
 
+    public async Task RefreshAsync()
+    {
+        await LoadLookupsAsync();
+        await LoadAsync();
+    }
+
     private async Task LoadLookupsAsync()
     {
         var companies = await _companyService.GetActiveLookupAsync();
@@ -188,16 +194,16 @@ public class ProductsControl : UserControl
 
         _suppressFilterEvents = true;
 
-        _companyCombo.DataSource = companies.Select(c => new { c.Id, c.Name }).ToList();
-        _categoryCombo.DataSource = categories.Select(c => new { c.Id, c.Name }).ToList();
+        Shared.Rebind(_companyCombo, companies.Select(c => new { c.Id, c.Name }).ToList());
+        Shared.Rebind(_categoryCombo, categories.Select(c => new { c.Id, c.Name }).ToList());
 
         var companyFilterItems = new List<object> { new { Id = (int?)null, Name = "All companies" } };
         companyFilterItems.AddRange(companies.Select(c => new { Id = (int?)c.Id, c.Name }));
-        _companyFilterCombo.DataSource = companyFilterItems;
+        Shared.Rebind(_companyFilterCombo, companyFilterItems);
 
         var categoryFilterItems = new List<object> { new { Id = (int?)null, Name = "All categories" } };
         categoryFilterItems.AddRange(categories.Select(c => new { Id = (int?)c.Id, c.Name }));
-        _categoryFilterCombo.DataSource = categoryFilterItems;
+        Shared.Rebind(_categoryFilterCombo, categoryFilterItems);
 
         _suppressFilterEvents = false;
     }

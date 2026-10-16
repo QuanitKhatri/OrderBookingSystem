@@ -6,7 +6,7 @@ using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Expenses;
 
-public class ExpenseEntryControl : UserControl
+public class ExpenseEntryControl : UserControl, IRefreshableScreen
 {
     private readonly IExpenseService _service;
     private readonly IExpenseCategoryService _categoryService;
@@ -84,10 +84,16 @@ public class ExpenseEntryControl : UserControl
         };
     }
 
+    public async Task RefreshAsync()
+    {
+        await LoadCategoriesAsync();
+        await LoadAsync();
+    }
+
     private async Task LoadCategoriesAsync()
     {
         var categories = await _categoryService.GetActiveLookupAsync();
-        _categoryCombo.DataSource = categories.Select(c => new { c.Id, c.Name }).ToList();
+        Shared.Rebind(_categoryCombo, categories.Select(c => new { c.Id, c.Name }).ToList());
     }
 
     private async Task AddCategoryAsync()

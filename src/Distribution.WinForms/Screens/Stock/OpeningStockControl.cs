@@ -6,7 +6,7 @@ using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Stock;
 
-public class OpeningStockControl : UserControl
+public class OpeningStockControl : UserControl, IRefreshableScreen
 {
     private readonly IOpeningStockService _service;
     private readonly IProductService _productService;
@@ -98,10 +98,16 @@ public class OpeningStockControl : UserControl
         };
     }
 
+    public async Task RefreshAsync()
+    {
+        await LoadProductsAsync();
+        await LoadAsync();
+    }
+
     private async Task LoadProductsAsync()
     {
         var products = await _productService.GetActiveLookupAsync();
-        _productCombo.DataSource = products.Select(p => new { p.Id, Label = $"{p.Code} - {p.Name}" }).ToList();
+        Shared.Rebind(_productCombo, products.Select(p => new { p.Id, Label = $"{p.Code} - {p.Name}" }).ToList());
     }
 
     private async Task LoadAsync()

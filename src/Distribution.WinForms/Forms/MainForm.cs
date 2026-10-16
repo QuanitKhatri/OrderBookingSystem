@@ -1,3 +1,5 @@
+using Distribution.Connect;
+using Distribution.Data;
 using Distribution.Services.Auth;
 using Distribution.WinForms.Controls;
 using Distribution.WinForms.Screens;
@@ -15,6 +17,15 @@ namespace Distribution.WinForms.Forms;
 public class MainForm : Form
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IUpdateService _updateService;
+    private readonly IBroadcastFeedClient _broadcastClient;
+    private readonly BroadcastStateStore _broadcastState;
+    private readonly ConnectOptions _connectOptions;
+    private readonly NotificationBell _bell;
+    private readonly System.Windows.Forms.Timer _connectTimer = new();
+    private readonly CancellationTokenSource _shutdown = new();
+    private IReadOnlyList<BroadcastMessage> _broadcasts = [];
+    private bool _updatePromptShown;
     private readonly SideNav _sideNav;
     private readonly Panel _contentArea;
     private readonly Panel _userBlock;
@@ -27,13 +38,23 @@ public class MainForm : Form
 
     private readonly Dictionary<string, IServiceScope> _screenScopes = new();
     private readonly Dictionary<string, Control> _screenCache = new();
+    private readonly HashSet<string> _refreshing = [];
     private string? _currentKey;
 
     public AuthResult? CurrentUser { get; set; }
 
-    public MainForm(IServiceScopeFactory scopeFactory)
+    public MainForm(
+        IServiceScopeFactory scopeFactory,
+        IUpdateService updateService,
+        IBroadcastFeedClient broadcastClient,
+        BroadcastStateStore broadcastState,
+        ConnectOptions connectOptions)
     {
         _scopeFactory = scopeFactory;
+        _updateService = updateService;
+        _broadcastClient = broadcastClient;
+        _broadcastState = broadcastState;
+        _connectOptions = connectOptions;
         Text = "Distribution Management System";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(1366, 768);
@@ -67,10 +88,14 @@ public class MainForm : Form
             Visible = false
         };
 
+        _bell = new NotificationBell { Visible = false };
+        _bell.Click += (_, _) => ShowNotifications();
+
         _dateBlock = CreateIconText(Icons.Calendar, DateTime.Now.ToString("dddd, dd MMM yyyy"));
         _userBlock = CreateIconText(Icons.Contact, string.Empty);
         _userLabel = (Label)_userBlock.Controls[1];
 
+        _topBar.Controls.Add(_bell);
         _topBar.Controls.Add(_dateBlock);
         _topBar.Controls.Add(_userBlock);
         _topBar.Controls.Add(_screenSubtitleLabel);
@@ -119,6 +144,7 @@ public class MainForm : Form
                 new NavGroup("Sales",
                 [
                     new NavItem("sales.billing", "Party Billing", Icons.Page),
+                    new NavItem("sales.receipt", "Receive Payment", Icons.PaymentCard),
                     new NavItem("sales.ledger", "Party Ledger", Icons.ReportDocument),
                     new NavItem("sales.credit", "Market Credit", Icons.PaymentCard)
                 ]),
@@ -141,11 +167,16 @@ public class MainForm : Form
             _sideNav.SetActive("dashboard", raiseEvent: false);
             NavigateTo("dashboard");
             ResumeLayout(true);
+
+            StartConnectChecks();
         };
 
         FormClosed += (_, _) =>
         {
+            _shutdown.Cancel();
+            _connectTimer.Stop();
             foreach (var scope in _screenScopes.Values) scope.Dispose();
+            _shutdown.Dispose();
         };
     }
 
@@ -179,6 +210,7 @@ public class MainForm : Form
     {
         _userBlock.Location = new Point(_topBar.Width - _userBlock.Width - 24, (_topBar.Height - _userBlock.Height) / 2);
         _dateBlock.Location = new Point(_userBlock.Left - _dateBlock.Width - 32, (_topBar.Height - _dateBlock.Height) / 2);
+        _bell.Location = new Point(_dateBlock.Left - _bell.Width - 16, (_topBar.Height - _bell.Height) / 2);
 
         // Stack title + subtitle from their measured heights and centre the block vertically;
         // the old fixed offsets let the subtitle cover the title's descenders ("Comnanies").
@@ -188,6 +220,119 @@ public class MainForm : Form
         _screenBadge.Location = new Point(24, (_topBar.Height - _screenBadge.Height) / 2);
         _screenTitleLabel.Location = new Point(76, top);
         _screenSubtitleLabel.Location = new Point(78, top + titleHeight - 3);
+    }
+
+    // ---- Updates and broadcast messages ----
+
+    private void StartConnectChecks()
+    {
+        _connectTimer.Interval = (int)_connectOptions.CheckInterval.TotalMilliseconds;
+        _connectTimer.Tick += async (_, _) => await RunConnectChecksAsync(promptForUpdate: true);
+        _connectTimer.Start();
+
+        // Give the main window a moment to finish painting before touching the network.
+        var startupDelay = new System.Windows.Forms.Timer { Interval = 4000 };
+        startupDelay.Tick += async (s, _) =>
+        {
+            ((System.Windows.Forms.Timer)s!).Stop();
+            ((System.Windows.Forms.Timer)s).Dispose();
+            await RunConnectChecksAsync(promptForUpdate: true);
+        };
+        startupDelay.Start();
+    }
+
+    private async Task RunConnectChecksAsync(bool promptForUpdate)
+    {
+        await RefreshBroadcastsAsync();
+        if (promptForUpdate) await CheckForUpdateAsync(announceNoUpdate: false);
+    }
+
+    private async Task RefreshBroadcastsAsync()
+    {
+        if (!_connectOptions.BroadcastsEnabled) return;
+
+        try
+        {
+            var messages = await _broadcastClient.GetMessagesAsync(_shutdown.Token);
+            if (_shutdown.IsCancellationRequested || IsDisposed) return;
+
+            _broadcasts = messages;
+            _broadcastState.Prune(messages);
+            UpdateBellCount();
+        }
+        catch (OperationCanceledException)
+        {
+            // The window is closing.
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Debug(ex, "Could not refresh broadcast messages");
+        }
+    }
+
+    private void UpdateBellCount()
+    {
+        _bell.Visible = _broadcasts.Count > 0;
+        _bell.UnreadCount = _broadcastState.CountUnread(_broadcasts);
+        PositionTopBarLabels();
+    }
+
+    private void ShowNotifications()
+    {
+        using var form = new NotificationsForm(_broadcastState, _broadcasts);
+        form.ReadStateChanged += (_, _) => UpdateBellCount();
+        form.ShowDialog(this);
+        UpdateBellCount();
+    }
+
+    /// <summary>
+    /// Looks for a newer version. <paramref name="announceNoUpdate"/> is set when the user asked,
+    /// so that "you are up to date" is also reported.
+    /// </summary>
+    private async Task CheckForUpdateAsync(bool announceNoUpdate)
+    {
+        if (!_connectOptions.UpdatesEnabled) return;
+        if (_updatePromptShown && !announceNoUpdate) return;
+
+        UpdateCheckResult result;
+        try
+        {
+            result = await _updateService.CheckAsync(_shutdown.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Debug(ex, "Update check failed");
+            return;
+        }
+
+        if (_shutdown.IsCancellationRequested || IsDisposed) return;
+
+        if (result.HasUpdate)
+        {
+            _updatePromptShown = true;
+            using var form = new UpdateForm(_updateService, result);
+            form.ShowDialog(this);
+            return;
+        }
+
+        if (!announceNoUpdate) return;
+
+        var message = result.Status switch
+        {
+            UpdateCheckStatus.UpToDate => $"You already have the latest version ({result.CurrentVersion}).",
+            UpdateCheckStatus.NotInstalled =>
+                "This copy was not installed by the setup program, so it cannot update itself.\n\n" +
+                "Ask your supplier for the installer to get automatic updates.",
+            UpdateCheckStatus.Disabled => "Updates are switched off for this computer.",
+            UpdateCheckStatus.NotConfigured => "No update source is set up for this computer.",
+            _ => $"The update check did not work: {result.Error}"
+        };
+
+        MessageBox.Show(this, message, "Software Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private record ScreenInfo(string Title, string Subtitle, string Icon);
@@ -204,6 +349,7 @@ public class MainForm : Form
         ["stock.received"] = new ScreenInfo("Stock Received", "Receive stock from your suppliers", Icons.Package),
         ["stock.damage"] = new ScreenInfo("Damage Entry", "Record damaged or lost stock", Icons.Admin),
         ["sales.billing"] = new ScreenInfo("Party Billing", "Create a new sale bill", Icons.Page),
+        ["sales.receipt"] = new ScreenInfo("Receive Payment", "Record a payment from a customer against their balance", Icons.PaymentCard),
         ["sales.ledger"] = new ScreenInfo("Party Ledger", "View a customer's transaction history", Icons.ReportDocument),
         ["sales.credit"] = new ScreenInfo("Market Credit", "Customer-wise outstanding balances", Icons.PaymentCard),
         ["expenses.entry"] = new ScreenInfo("Expense Entry", "Record a business or personal expense", Icons.PaymentCard),
@@ -225,6 +371,7 @@ public class MainForm : Form
             previous.Visible = false;
         }
 
+        bool firstVisit = false;
         if (!_screenCache.TryGetValue(key, out var screen))
         {
             screen = BuildScreen(key);
@@ -232,11 +379,18 @@ public class MainForm : Form
             screen.Visible = false;
             _contentArea.Controls.Add(screen);
             _screenCache[key] = screen;
+            firstVisit = true;
         }
 
         screen.Visible = true;
         screen.BringToFront();
         _currentKey = key;
+
+        // A new screen loads itself in its Load event; a cached one must reload what other screens changed meanwhile.
+        if (!firstVisit && screen is IRefreshableScreen refreshable)
+        {
+            _ = RefreshScreenAsync(key, refreshable);
+        }
 
         var info = ScreenInfos.GetValueOrDefault(key, new ScreenInfo("Coming soon", "", Icons.ViewAll));
         _screenTitleLabel.Text = info.Title;
@@ -244,6 +398,31 @@ public class MainForm : Form
         _screenSubtitleLabel.Text = info.Subtitle;
         _screenSubtitleLabel.Visible = !string.IsNullOrEmpty(info.Subtitle);
         PositionTopBarLabels();
+    }
+
+    private async Task RefreshScreenAsync(string key, IRefreshableScreen screen)
+    {
+        if (!_refreshing.Add(key)) return;
+        try
+        {
+            // Each cached screen keeps one DbContext for the session; forget the rows it tracked earlier so the
+            // reload reads current values instead of the copies it already has in memory.
+            if (_screenScopes.TryGetValue(key, out var scope))
+            {
+                scope.ServiceProvider.GetRequiredService<DistributionDbContext>().ChangeTracker.Clear();
+            }
+
+            await screen.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "Refreshing screen {Screen} failed", key);
+            Toast.Show(this, $"Could not refresh this screen: {ex.Message}", ToastKind.Danger);
+        }
+        finally
+        {
+            _refreshing.Remove(key);
+        }
     }
 
     private Control BuildScreen(string key)
@@ -275,6 +454,7 @@ public class MainForm : Form
             "stock.received" => ActivatorUtilities.CreateInstance<StockReceivedControl>(sp, username),
             "stock.damage" => ActivatorUtilities.CreateInstance<DamageEntryControl>(sp, username),
             "sales.billing" => ActivatorUtilities.CreateInstance<PartyBillingControl>(sp, CurrentUser!.Role, username),
+            "sales.receipt" => ActivatorUtilities.CreateInstance<ReceivePaymentControl>(sp, username),
             "sales.ledger" => ActivatorUtilities.CreateInstance<PartyLedgerControl>(sp),
             "sales.credit" => ActivatorUtilities.CreateInstance<MarketCreditControl>(sp),
             "expenses.entry" => ActivatorUtilities.CreateInstance<ExpenseEntryControl>(sp, username),

@@ -4,7 +4,7 @@ using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Masters;
 
-public class CompaniesControl : UserControl
+public class CompaniesControl : UserControl, IRefreshableScreen
 {
     private readonly ICompanyService _service;
     private readonly string _currentUser;
@@ -86,6 +86,8 @@ public class CompaniesControl : UserControl
 
         Load += async (_, _) => await LoadAsync();
     }
+
+    public Task RefreshAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {

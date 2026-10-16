@@ -4,7 +4,7 @@ using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Masters;
 
-public class SuppliersControl : UserControl
+public class SuppliersControl : UserControl, IRefreshableScreen
 {
     private readonly ISupplierService _service;
     private readonly ICompanyService _companyService;
@@ -118,10 +118,16 @@ public class SuppliersControl : UserControl
         };
     }
 
+    public async Task RefreshAsync()
+    {
+        await LoadCompaniesAsync();
+        await LoadAsync();
+    }
+
     private async Task LoadCompaniesAsync()
     {
         var companies = await _companyService.GetActiveLookupAsync();
-        _companyCombo.DataSource = companies.Select(c => new { c.Id, c.Name }).ToList();
+        Shared.Rebind(_companyCombo, companies.Select(c => new { c.Id, c.Name }).ToList());
     }
 
     private async Task LoadAsync()

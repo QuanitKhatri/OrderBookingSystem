@@ -1,15 +1,19 @@
+using Distribution.Reports;
+using Distribution.Services.Admin;
 using Distribution.Services.Masters;
 using Distribution.Services.Sales;
 using Distribution.WinForms.Controls;
+using Distribution.WinForms.Printing;
 using Distribution.WinForms.Screens.Masters;
 using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Sales;
 
-public class PartyLedgerControl : UserControl
+public class PartyLedgerControl : UserControl, IRefreshableScreen
 {
     private readonly ICustomerLedgerService _service;
     private readonly ICustomerService _customerService;
+    private readonly ISettingsService _settingsService;
 
     private readonly ComboBox _customerCombo;
     private readonly DateTimePicker _fromDate;
@@ -18,10 +22,13 @@ public class PartyLedgerControl : UserControl
     private readonly ThemedGrid _grid;
     private readonly EmptyState _emptyState;
 
-    public PartyLedgerControl(ICustomerLedgerService service, ICustomerService customerService)
+    private List<LedgerEntry> _entries = [];
+
+    public PartyLedgerControl(ICustomerLedgerService service, ICustomerService customerService, ISettingsService settingsService)
     {
         _service = service;
         _customerService = customerService;
+        _settingsService = settingsService;
         BackColor = Theme.Theme.Background;
 
         var card = new CardPanel { Dock = DockStyle.Top, AutoHeight = true, Title = "Party Ledger", Subtitle = "View a customer's transaction history", IconGlyph = Icons.ReportDocument };
@@ -39,6 +46,7 @@ public class PartyLedgerControl : UserControl
         var btnRow = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Margin = new Padding(0, 16, 0, 0) };
         _viewButton = new ThemedButton { Text = "View Ledger", Width = 150, IconGlyph = Icons.Search };
         btnRow.Controls.Add(_viewButton);
+        ReportOutput.AddButtons(btnRow, BuildReportAsync);
 
         card.ContentArea.Controls.Add(btnRow);
         card.ContentArea.Controls.Add(row);
@@ -64,24 +72,55 @@ public class PartyLedgerControl : UserControl
         Load += async (_, _) => await LoadCustomersAsync();
     }
 
+    public async Task RefreshAsync()
+    {
+        await LoadCustomersAsync();
+        if (_grid.Visible) await LoadAsync();
+    }
+
     private async Task LoadCustomersAsync()
     {
         var customers = await _customerService.SearchAsync(null);
-        _customerCombo.DataSource = customers.Select(c => new { c.Id, Label = $"{c.Code} - {c.ShopName}" }).ToList();
+        Shared.Rebind(_customerCombo, customers.Select(c => new { c.Id, Label = $"{c.Code} - {c.ShopName}" }).ToList());
     }
 
     private async Task LoadAsync()
     {
         if (_customerCombo.SelectedValue is not int customerId) return;
 
-        var entries = await _service.GetLedgerAsync(customerId, _fromDate.Value.Date, _toDate.Value.Date);
+        _entries = await _service.GetLedgerAsync(customerId, _fromDate.Value.Date, _toDate.Value.Date);
         _grid.Rows.Clear();
-        foreach (var e in entries)
+        foreach (var e in _entries)
         {
             _grid.Rows.Add(e.Date.ToString("dd MMM yyyy"), e.Type, e.Reference, e.Debit, e.Credit, e.RunningBalance);
         }
         _grid.RightAlignNumericColumns();
-        _grid.Visible = entries.Count > 0;
-        _emptyState.Visible = entries.Count == 0;
+        _grid.Visible = _entries.Count > 0;
+        _emptyState.Visible = _entries.Count == 0;
+    }
+
+    private async Task<ReportDocument?> BuildReportAsync()
+    {
+        if (_entries.Count == 0)
+        {
+            Toast.Show(FindForm()!, "Click View Ledger first.", ToastKind.Warning);
+            return null;
+        }
+
+        var subtitle = $"{_customerCombo.Text}  |  {_fromDate.Value:dd MMM yyyy} to {_toDate.Value:dd MMM yyyy}";
+        var report = await ReportOutput.CreateAsync(_settingsService, "Party Ledger", subtitle);
+
+        var table = new ReportTable(null,
+            new ReportColumn("Date", ReportColumnKind.Date),
+            new ReportColumn("Type"),
+            new ReportColumn("Reference", Width: 1.6f),
+            new ReportColumn("Debit", ReportColumnKind.Money),
+            new ReportColumn("Credit", ReportColumnKind.Money),
+            new ReportColumn("Running Balance", ReportColumnKind.Money, 1.3f));
+
+        foreach (var e in _entries) table.AddRow(e.Date, e.Type, e.Reference, e.Debit, e.Credit, e.RunningBalance);
+        table.Totals = ["", "", "Closing Balance", _entries.Sum(e => e.Debit), _entries.Sum(e => e.Credit), _entries[^1].RunningBalance];
+        report.Tables.Add(table);
+        return report;
     }
 }

@@ -40,6 +40,19 @@ public static class Theme
     public static Font MutedFont { get; } = new(FontFamily, 9f);
     public static Font SectionTitleFont { get; } = new(FontFamily, 12f, FontStyle.Bold);
 
+    private static readonly Dictionary<float, Font> FontCache = new();
+
+    /// <summary>Returns a shared, cached regular-weight Font for the given size. Never dispose the result — it's reused across every paint call.</summary>
+    public static Font GetFont(float size)
+    {
+        if (!FontCache.TryGetValue(size, out var font))
+        {
+            font = new Font(FontFamily, size);
+            FontCache[size] = font;
+        }
+        return font;
+    }
+
     private static readonly Dictionary<float, Font> BoldFontCache = new();
 
     /// <summary>Returns a shared, cached bold Font for the given size. Never dispose the result — it's reused across every paint call.</summary>

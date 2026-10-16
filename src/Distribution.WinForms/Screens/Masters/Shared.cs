@@ -20,6 +20,20 @@ internal static class Shared
         return panel;
     }
 
+    /// <summary>
+    /// Binds fresh items to a lookup drop-down, keeping the current choice when it is still in the list
+    /// (otherwise the first item is selected). Pass <paramref name="select"/> to choose a specific value instead.
+    /// </summary>
+    public static void Rebind(ComboBox combo, object items, object? select = null)
+    {
+        var wanted = select ?? combo.SelectedValue;
+        combo.DataSource = items;
+        if (wanted is null) return;
+
+        combo.SelectedValue = wanted;
+        if (combo.SelectedIndex < 0 && combo.Items.Count > 0) combo.SelectedIndex = 0;
+    }
+
     /// <summary>Vertical gap between Dock=Top siblings (Dock layout ignores Margin).</summary>
     public static Panel Spacer(int height = 10) => new() { Dock = DockStyle.Top, Height = height };
 

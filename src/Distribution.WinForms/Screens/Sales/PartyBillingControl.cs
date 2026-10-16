@@ -1,3 +1,4 @@
+using Distribution.Domain.Common;
 using Distribution.Domain.System;
 using Distribution.Services.Masters;
 using Distribution.Services.Sales;
@@ -7,7 +8,7 @@ using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Sales;
 
-public class PartyBillingControl : UserControl
+public class PartyBillingControl : UserControl, IRefreshableScreen
 {
     private readonly ISaleService _service;
     private readonly ICustomerService _customerService;
@@ -28,6 +29,7 @@ public class PartyBillingControl : UserControl
 
     private readonly NumericStepperField _billDiscountBox;
     private readonly NumericStepperField _cashReceivedBox;
+    private readonly ComboBox _paidByCombo;
     private readonly Label _totalsLabel;
     private readonly ThemedButton _saveButton;
     private readonly ThemedButton _clearButton;
@@ -98,9 +100,11 @@ public class PartyBillingControl : UserControl
 
         _billDiscountBox = new NumericStepperField { Maximum = 9_999_999, DecimalPlaces = 2, Increment = 1 };
         _cashReceivedBox = new NumericStepperField { Maximum = 9_999_999, DecimalPlaces = 2, Increment = 1 };
+        _paidByCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Label", ValueMember = "Value" };
 
         totalsRow.Controls.Add(Shared.BadgeStepperField("Bill Discount", Icons.Tag, Theme.Theme.PastelPurple, Theme.Theme.AccentPurple, _billDiscountBox, 200));
         totalsRow.Controls.Add(Shared.BadgeStepperField("Cash Received", Icons.PaymentCard, Theme.Theme.PastelGreen, Theme.Theme.AccentGreen, _cashReceivedBox, 200));
+        totalsRow.Controls.Add(Shared.BadgeField("Received In", Icons.Library, Theme.Theme.PastelBlue, Theme.Theme.AccentBlue, _paidByCombo, "", 180));
 
         _totalsLabel = new Label { Dock = DockStyle.Top, Height = 28, Font = new Font(Theme.Theme.FontFamily, 11f, FontStyle.Bold), ForeColor = Theme.Theme.HeadingNavy, Text = "Net Bill: Rs 0   |   New Balance: Rs 0" };
 
@@ -141,16 +145,24 @@ public class PartyBillingControl : UserControl
 
         Load += async (_, _) =>
         {
+            _paidByCombo.DataSource = Enum.GetValues<PaidBy>().Select(v => new { Value = v, Label = v.ToString() }).ToList();
             await LoadCustomersAsync();
             await LoadProductsAsync();
             await LoadHistoryAsync();
         };
     }
 
+    public async Task RefreshAsync()
+    {
+        await LoadCustomersAsync();
+        await LoadProductsAsync();
+        await LoadHistoryAsync();
+    }
+
     private async Task LoadCustomersAsync()
     {
         var customers = await _customerService.SearchAsync(null);
-        _customerCombo.DataSource = customers.Select(c => new { c.Id, Label = $"{c.Code} - {c.ShopName}", c.Balance }).ToList();
+        Shared.Rebind(_customerCombo, customers.Select(c => new { c.Id, Label = $"{c.Code} - {c.ShopName}", c.Balance }).ToList());
         UpdatePreviousBalance();
     }
 
@@ -165,7 +177,10 @@ public class PartyBillingControl : UserControl
     private async Task LoadProductsAsync()
     {
         _products = await _productService.SearchAsync(null, null, null);
-        _lineProductCombo.DataSource = _products.Select(p => new { p.Id, Label = $"{p.Code} - {p.Name}" }).ToList();
+        // Keep the chosen product across a refresh, but do not re-trigger AutoFillRate over a rate the user edited.
+        var keepRate = _lineRateBox.Value;
+        Shared.Rebind(_lineProductCombo, _products.Select(p => new { p.Id, Label = $"{p.Code} - {p.Name}" }).ToList());
+        if (keepRate > 0) _lineRateBox.Value = keepRate;
     }
 
     private void AutoFillRate()
@@ -267,12 +282,16 @@ public class PartyBillingControl : UserControl
         var model = new SaleInputModel(
             customerId, _dateBox.Value.Date,
             _lines.Select(l => new SaleLineInput(l.ProductId, l.Qty, l.Rate, l.DiscountPct)).ToList(),
-            _billDiscountBox.Value, _cashReceivedBox.Value);
+            _billDiscountBox.Value, _cashReceivedBox.Value,
+            _paidByCombo.SelectedValue is PaidBy paidBy ? paidBy : PaidBy.Cash);
 
         try
         {
             var result = await _service.CreateAsync(model, _isAdmin, _currentUser);
-            Toast.Show(FindForm()!, $"Bill {result.BillNo} saved.");
+            var credit = result.NetAmount - model.CashReceived;
+            Toast.Show(FindForm()!, credit > 0
+                ? $"Bill {result.BillNo} saved. Rs {credit:N0} on credit — new balance Rs {result.NewBalance:N0}."
+                : $"Bill {result.BillNo} saved. Fully paid.");
             ClearAll();
             await LoadCustomersAsync();
             await LoadHistoryAsync();

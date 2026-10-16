@@ -6,7 +6,7 @@ using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Stock;
 
-public class StockReceivedControl : UserControl
+public class StockReceivedControl : UserControl, IRefreshableScreen
 {
     private readonly IPurchaseService _service;
     private readonly ISupplierService _supplierService;
@@ -178,17 +178,24 @@ public class StockReceivedControl : UserControl
         };
     }
 
+    public async Task RefreshAsync()
+    {
+        await LoadSuppliersAsync();
+        await LoadProductsAsync();
+        await LoadHistoryAsync();
+    }
+
     private async Task LoadSuppliersAsync()
     {
         var suppliers = await _supplierService.SearchAsync(null);
-        _supplierCombo.DataSource = suppliers.Select(s => new { s.Id, Label = $"{s.Code} - {s.Name}" }).ToList();
+        Shared.Rebind(_supplierCombo, suppliers.Select(s => new { s.Id, Label = $"{s.Code} - {s.Name}" }).ToList());
     }
 
     private async Task LoadProductsAsync()
     {
         var products = await _productService.GetActiveLookupAsync();
         var items = products.Select(p => new { p.Id, Label = $"{p.Code} - {p.Name}" }).ToList();
-        _lineProductCombo.DataSource = items;
+        Shared.Rebind(_lineProductCombo, items);
     }
 
     private void AddLine(object? sender, EventArgs e)

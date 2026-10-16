@@ -1,8 +1,10 @@
+using Distribution.Domain.Common;
+
 namespace Distribution.Services.Sales;
 
 public record SaleLineInput(int ProductId, decimal Qty, decimal Rate, decimal DiscountPct);
 
-public record SaleInputModel(int CustomerId, DateTime Date, List<SaleLineInput> Items, decimal BillDiscount, decimal CashReceived);
+public record SaleInputModel(int CustomerId, DateTime Date, List<SaleLineInput> Items, decimal BillDiscount, decimal CashReceived, PaidBy PaidBy = PaidBy.Cash);
 
 public record SaleLineResult(int ProductId, string ProductCode, string ProductName, decimal Qty, decimal Rate, decimal Amount, decimal DiscountAmount, decimal NetAmount);
 

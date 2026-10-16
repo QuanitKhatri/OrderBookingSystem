@@ -7,7 +7,7 @@ using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Stock;
 
-public class DamageEntryControl : UserControl
+public class DamageEntryControl : UserControl, IRefreshableScreen
 {
     private readonly IDamageService _service;
     private readonly IDamageReasonService _reasonService;
@@ -125,16 +125,23 @@ public class DamageEntryControl : UserControl
         };
     }
 
+    public async Task RefreshAsync()
+    {
+        await LoadProductsAsync();
+        await LoadReasonsAsync();
+        await LoadAsync();
+    }
+
     private async Task LoadProductsAsync()
     {
         var products = await _productService.GetActiveLookupAsync();
-        _productCombo.DataSource = products.Select(p => new { p.Id, Label = $"{p.Code} - {p.Name}" }).ToList();
+        Shared.Rebind(_productCombo, products.Select(p => new { p.Id, Label = $"{p.Code} - {p.Name}" }).ToList());
     }
 
     private async Task LoadReasonsAsync()
     {
         var reasons = await _reasonService.GetActiveLookupAsync();
-        _reasonCombo.DataSource = reasons.Select(r => new { r.Id, r.Name }).ToList();
+        Shared.Rebind(_reasonCombo, reasons.Select(r => new { r.Id, r.Name }).ToList());
     }
 
     private async Task AddReasonAsync()

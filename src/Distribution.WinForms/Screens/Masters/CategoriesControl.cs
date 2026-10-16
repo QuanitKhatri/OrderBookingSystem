@@ -4,7 +4,7 @@ using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Masters;
 
-public class CategoriesControl : UserControl
+public class CategoriesControl : UserControl, IRefreshableScreen
 {
     private readonly ICategoryService _service;
     private readonly string _currentUser;
@@ -80,6 +80,8 @@ public class CategoriesControl : UserControl
     }
 
     private List<CategoryListItem> _currentRows = [];
+
+    public Task RefreshAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {

@@ -4,7 +4,7 @@ using Icons = Distribution.WinForms.Theme.Icons;
 
 namespace Distribution.WinForms.Screens.Masters;
 
-public class CustomersControl : UserControl
+public class CustomersControl : UserControl, IRefreshableScreen
 {
     private readonly ICustomerService _service;
     private readonly IAreaService _areaService;
@@ -125,10 +125,16 @@ public class CustomersControl : UserControl
         };
     }
 
+    public async Task RefreshAsync()
+    {
+        await LoadAreasAsync();
+        await LoadAsync();
+    }
+
     private async Task LoadAreasAsync()
     {
         var areas = await _areaService.GetActiveLookupAsync();
-        _areaCombo.DataSource = areas.Select(a => new { a.Id, a.Name }).ToList();
+        Shared.Rebind(_areaCombo, areas.Select(a => new { a.Id, a.Name }).ToList());
     }
 
     private async Task AddAreaAsync()
