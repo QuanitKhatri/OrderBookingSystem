@@ -4,6 +4,7 @@
 how to send them an update, and how to send them a notification with a poster or video.
 
 Your customers' own manual is in [user-manual/](user-manual/README.md).
+Before handing the software over, work through [TESTING.md](TESTING.md).
 
 ---
 

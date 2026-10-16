@@ -13,6 +13,7 @@ This folder contains the complete end-user manual for the **Distribution Managem
 | See what is covered and what still needs verification | [DOCUMENTATION_COVERAGE.md](DOCUMENTATION_COVERAGE.md) |
 
 **New users:** read USER_MANUAL.md Sections 4–6, then the workflow guide for your job.
+**Distributors:** see [../DISTRIBUTOR_GUIDE.md](../DISTRIBUTOR_GUIDE.md) and [../TESTING.md](../TESTING.md).
 **Administrators setting up a new installation:** start with [WORKFLOW_GUIDES.md → W1 First-time setup](WORKFLOW_GUIDES.md#w1-first-time-setup-of-the-application).
 
 ## Folder contents
